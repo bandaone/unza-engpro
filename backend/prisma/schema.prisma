@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+
+enum Role {
+  student
+  supervisor
+  coordinator
+}
+
+enum AcademicStatus {
+  active
+  probation
+  inactive
+}
+
+enum GroupMemberRole {
+  member
+  leader
+}
+
+enum ProjectDifficulty {
+  beginner
+  intermediate
+  advanced
+}
+
+enum ProjectSource {
+  student_proposed
+  school_listed
+}
+
+enum ProjectStatus {
+  draft
+  pending_approval
+  approved
+  rejected
+}
+
+enum AllocationType {
+  student
+  group
+}
+
+enum AllocationPhase {
+  proposal
+  preference
+  manual
+  override
+}
+
+enum AllocationStatus {
+  active
+  completed
+  cancelled
+}
+
+enum LogbookStatus {
+  draft
+  submitted
+}
+
+enum SplitRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum NotificationType {
+  info
+  success
+  warning
+  error
+}
+
+enum SettingDataType {
+  string
+  number
+  boolean
+  json
+}
+
+// MODELS
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password_hash String
+  role          Role
+  full_name     String
+  avatar_url    String?
+  is_active     Boolean   @default(true)
+  last_login_at DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  student                 Student?
+  supervisor              Supervisor?
+  createdGroups           Group[]                 @relation("CreatedBy")
+  createdProjects         Project[]               @relation("CreatedBy")
+  allocationsBy           ProjectAllocation[]     @relation("AllocatedBy")
+  logbookEntries          LogbookEntry[]          @relation("EntryAuthor")
+  logbookComments         LogbookComment[]        @relation("CommentAuthor")
+  splitRequestsReviewed   SplitRequest[]          @relation("ReviewedBy")
+  notifications           Notification[]
+  systemSettingsUpdated   SystemSetting[]         @relation("UpdatedBy")
+}
+
+model Student {
+  id                  String          @id // This is the FK to User.id
+  user                User            @relation(fields: [id], references: [id], onDelete: Cascade)
+  registration_number String          @unique
+  year_of_study       Int             @default(4)
+  department          String
+  phone_number        String?
+  current_group_id    String?
+  gpa                 Decimal?        @db.Decimal(3, 2)
+  academic_status     AcademicStatus
+
+  group             Group?            @relation(fields: [current_group_id], references: [id], onDelete: SetNull)
+  groupMemberships  GroupMember[]
+  preferences       StudentPreference[]
+  splitRequests     SplitRequest[]    @relation("Requester")
+}
+
+model Supervisor {
+  id                      String    @id // This is the FK to User.id
+  user                    User      @relation(fields: [id], references: [id], onDelete: Cascade)
+  staff_id                String    @unique
+  department              String
+  title                   String
+  max_capacity            Int       @default(5)
+  current_load            Int       @default(0)
+  specialization          String?
+  office_location         String?
+  phone_extension         String?
+  is_accepting_students   Boolean   @default(true)
+
+  projects          Project[]
+  projectAllocations ProjectAllocation[]
+}
+
+model Group {
+  id                   String    @id @default(uuid())
+  group_id             String    @unique
+  shared_password_hash String
+  group_name           String?
+  is_active            Boolean   @default(true)
+  created_by_id        String
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+  dissolved_at         DateTime?
+
+  createdBy   User          @relation("CreatedBy", fields: [created_by_id], references: [id])
+  members     GroupMember[]
+  students    Student[]
+  splitRequests SplitRequest[]
+}
+
+model GroupMember {
+  id         String          @id @default(uuid())
+  group_id   String
+  student_id String
+  joined_at  DateTime        @default(now())
+  left_at    DateTime?
+  is_active  Boolean         @default(true)
+  role       GroupMemberRole
+
+  group   Group   @relation(fields: [group_id], references: [id])
+  student Student @relation(fields: [student_id], references: [id])
+
+  @@unique([group_id, student_id])
+}
+
+model Skill {
+  id      String    @id @default(uuid())
+  name    String    @unique
+  projects Project[] @relation("ProjectSkills")
+}
+
+model Project {
+  id                 String            @id @default(uuid())
+  title              String
+  description        String            @db.Text
+  objectives         String?           @db.Text
+  expected_outcomes  String?           @db.Text
+  category           String
+  difficulty_level   ProjectDifficulty
+  prerequisites      String?           @db.Text
+  max_students       Int               @default(1)
+  is_available       Boolean           @default(true)
+  created_by_id      String?
+  supervisor_id      String
+  source             ProjectSource
+  status             ProjectStatus
+  rejection_reason   String?           @db.Text
+  created_at         DateTime          @default(now())
+  updated_at         DateTime          @updatedAt
+  approved_at        DateTime?
+
+  required_skills    Skill[]           @relation("ProjectSkills")
+  createdBy          User?             @relation("CreatedBy", fields: [created_by_id], references: [id])
+  supervisor         Supervisor        @relation(fields: [supervisor_id], references: [id])
+  allocations        ProjectAllocation[]
+  preferences        StudentPreference[]
+  logbookEntries     LogbookEntry[]
+  splitRequests      SplitRequest[]
+}
+
+model ProjectAllocation {
+  id                String         @id @default(uuid())
+  project_id        String
+  allocated_to_type AllocationType
+  allocated_to_id   String // References Students.id or Groups.id
+  supervisor_id     String
+  allocated_by_id   String
+  allocated_at      DateTime       @default(now())
+  allocation_phase  AllocationPhase
+  status            AllocationStatus
+  completion_date   DateTime?
+  final_grade       String?
+
+  project      Project    @relation(fields: [project_id], references: [id])
+  supervisor   Supervisor @relation(fields: [supervisor_id], references: [id])
+  allocatedBy  User       @relation("AllocatedBy", fields: [allocated_by_id], references: [id])
+}
+
+model StudentPreference {
+  id              String   @id @default(uuid())
+  student_id      String
+  project_id      String
+  preference_rank Int
+  submitted_at    DateTime @default(now())
+  is_active       Boolean  @default(true)
+
+  student Student @relation(fields: [student_id], references: [id])
+  project Project @relation(fields: [project_id], references: [id])
+
+  @@unique([student_id, project_id])
+}
+
+model LogbookEntry {
+  id                      String        @id @default(uuid())
+  project_id              String
+  author_id               String
+  entry_date              DateTime      @db.Date
+  work_completed          String        @db.Text
+  challenges_encountered  String?       @db.Text
+  solutions_applied       String?       @db.Text
+  next_steps              String?       @db.Text
+  hours_spent             Decimal?      @db.Decimal(4, 2)
+  resources_used          String?       @db.Text
+  status                  LogbookStatus
+  created_at              DateTime      @default(now())
+  updated_at              DateTime      @updatedAt
+  submitted_at            DateTime?
+
+  project  Project        @relation(fields: [project_id], references: [id])
+  author   User           @relation("EntryAuthor", fields: [author_id], references: [id])
+  comments LogbookComment[]
+}
+
+model LogbookComment {
+  id                String       @id @default(uuid())
+  logbook_entry_id  String
+  author_id         String
+  comment_text      String       @db.Text
+  is_read           Boolean      @default(false)
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt
+
+  logbookEntry LogbookEntry @relation(fields: [logbook_entry_id], references: [id])
+  author       User         @relation("CommentAuthor", fields: [author_id], references: [id])
+}
+
+model SplitRequest {
+  id                  String             @id @default(uuid())
+  requester_id        String
+  group_id            String
+  proposed_project_id String?
+  reason              String             @db.Text
+  status              SplitRequestStatus
+  reviewed_by_id      String?
+  reviewed_at         DateTime?
+  review_notes        String?            @db.Text
+  created_at          DateTime           @default(now())
+  updated_at          DateTime           @updatedAt
+
+  requester       Student  @relation("Requester", fields: [requester_id], references: [id])
+  group           Group    @relation(fields: [group_id], references: [id])
+  proposedProject Project? @relation(fields: [proposed_project_id], references: [id])
+  reviewedBy      User?    @relation("ReviewedBy", fields: [reviewed_by_id], references: [id])
+}
+
+model Notification {
+  id                  String          @id @default(uuid())
+  user_id             String
+  title               String
+  message             String          @db.Text
+  type                NotificationType
+  related_entity_type String?
+  related_entity_id   String?
+  is_read             Boolean         @default(false)
+  action_url          String?
+  created_at          DateTime        @default(now())
+  expires_at          DateTime?
+
+  user User @relation(fields: [user_id], references: [id])
+}
+
+model SystemSetting {
+  id            String        @id @default(uuid())
+  setting_key   String        @unique
+  setting_value String        @db.Text
+  data_type     SettingDataType
+  description   String?       @db.Text
+  is_public     Boolean       @default(false)
+  updated_by_id String?
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+
+  updatedBy User? @relation("UpdatedBy", fields: [updated_by_id], references: [id])
+}

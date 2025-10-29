@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS (keeping existing enums...)
+
+enum ProposalStatus {
+  pending_approval
+  approved
+  rejected
+}
+
+// Adding new model for Project Proposals
+model ProjectProposal {
+  id              String          @id @default(uuid())
+  title           String
+  description     String          @db.Text
+  objectives      String          @db.Text
+  methodology     String          @db.Text
+  timeline        String          @db.Text
+  resources       String?         @db.Text
+  category        String
+  supervisorId    String          @map("supervisor_id")
+  submittedBy     String          @map("submitted_by")
+  status          ProposalStatus  @default(pending_approval)
+  reviewNotes     String?         @map("review_notes") @db.Text
+  wordDocPath     String          @map("word_doc_path")
+  reviewedBy      String?         @map("reviewed_by")
+  reviewedAt      DateTime?       @map("reviewed_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  supervisor      Supervisor      @relation(fields: [supervisorId], references: [id])
+  submitter       User           @relation("ProposalSubmitter", fields: [submittedBy], references: [id])
+  reviewer        User?          @relation("ProposalReviewer", fields: [reviewedBy], references: [id])
+
+  @@map("project_proposals")
+}

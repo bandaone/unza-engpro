@@ -1,0 +1,18 @@
+FROM node:18-alpine
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+# Copy the Prisma schema to the container
+COPY prisma ./prisma/
+
+# Install dependencies and run prisma generate (thanks to postinstall script)
+RUN npm install
+
+# We don't copy the rest of the code because we will mount it as a volume
+# COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

@@ -1,0 +1,1050 @@
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+
+class LogbookService {
+  async getLogbookEntries(projectId, userId, userRole) {
+
+  const project = await prisma.project.findUnique({
+
+    where: { id: projectId },
+
+    include: {const getLogbookEntries = async (projectId, userId, userRole) => {const getLogbookEntries = async (projectId, userId, userRole) => {
+
+      supervisor: true,
+
+      allocations: true  const project = await prisma.project.findUnique({  const project = await prisma.project.findUnique({
+
+    }
+
+  });    where: { id: projectId },    where: { id: projectId },
+
+
+
+  if (!project) {    include: {    include: {
+
+    throw new Error('Project not found');
+
+  }      supervisor: true,      supervisor: true,
+
+
+
+  // Check if user has access      allocations: true      allocations: true
+
+  const canAccess = 
+
+    userRole === 'coordinator' ||    }    }
+
+    project.supervisor_id === userId ||
+
+    project.allocations.some(a => a.allocated_to_id === userId);  });  });
+
+
+
+  if (!canAccess) {
+
+    throw new Error('Not authorized to view this logbook');
+
+  }  if (!project) {  if (!project) {
+
+
+
+  return prisma.logbookEntry.findMany({    throw new Error('Project not found');    throw new Error('Project not found');
+
+    where: { project_id: projectId },
+
+    include: {  }  }
+
+      author: {
+
+        select: { full_name: true }
+
+      }
+
+    },  // Check if user has access  // Check if user has access
+
+    orderBy: { entry_date: 'desc' }
+
+  });  const canAccess =   const canAccess = 
+
+};
+
+    userRole === 'coordinator' ||    userRole === 'coordinator' ||
+
+const createLogbookEntry = async (projectId, userId, entryData) => {
+
+  const { work_completed, challenges_encountered, solutions_applied, next_steps, hours_spent, resources_used } = entryData;    project.supervisor_id === userId ||      project.supervisor_id === userId ||
+
+
+
+  // Check project exists and user has access    project.allocations.some(a => a.allocated_to_id === userId);      project.allocations.some(a => a.allocated_to_id === userId);
+
+  const project = await prisma.project.findFirst({
+
+    where: {
+
+      id: projectId,
+
+      allocations: {  if (!canAccess) {    if (!canAccess) {
+
+        some: { allocated_to_id: userId }
+
+      }    throw new Error('Not authorized to view this logbook');      throw new Error('Not authorized to view this logbook');
+
+    }
+
+  });  }    }
+
+
+
+  if (!project) {
+
+    throw new Error('Project not found or not authorized');
+
+  }  return prisma.logbookEntry.findMany({    return prisma.logbookEntry.findMany({
+
+
+
+  return prisma.logbookEntry.create({    where: { project_id: projectId },      where: { project_id: projectId },
+
+    data: {
+
+      project_id: projectId,    include: {      include: {
+
+      author_id: userId,
+
+      entry_date: new Date(),      author: {        author: {
+
+      work_completed,
+
+      challenges_encountered,        select: { full_name: true }          select: { full_name: true }
+
+      solutions_applied,
+
+      next_steps,      }        },
+
+      hours_spent: hours_spent ? parseFloat(hours_spent) : 0,
+
+      resources_used,    },        comments: {
+
+      status: 'submitted'
+
+    },    orderBy: { entry_date: 'desc' }          include: {
+
+    include: {
+
+      author: {  });            author: {
+
+        select: { full_name: true }
+
+      }};              select: { full_name: true, role: true }
+
+    }
+
+  });            }
+
+};
+
+const createLogbookEntry = async (projectId, userId, entryData) => {          },
+
+const getLogbookEntryById = async (entryId, userId, userRole) => {
+
+  const entry = await prisma.logbookEntry.findUnique({  const { work_completed, challenges_encountered, solutions_applied, next_steps, hours_spent, resources_used } = entryData;          orderBy: {
+
+    where: { id: entryId },
+
+    include: {            created_at: 'asc'
+
+      project: {
+
+        include: {  // Check project exists and user has access          }
+
+          supervisor: true,
+
+          allocations: {  const project = await prisma.project.findFirst({        }
+
+            include: {
+
+              group: {    where: {      },
+
+                include: {
+
+                  members: true      id: projectId,      orderBy: { created_at: 'desc' }
+
+                }
+
+              }      allocations: {    });
+
+            }
+
+          }        some: { allocated_to_id: userId }  }
+
+        }
+
+      },      }
+
+      author: { select: { full_name: true, email: true, role: true } },
+
+      comments: {     }  async createEntry(projectId, userId, entryData) {
+
+        include: { 
+
+          author: { select: { full_name: true, email: true, role: true } }   });    const { summary, progress, nextSteps, hoursSpent } = entryData;
+
+        } 
+
+      }
+
+    }
+
+  });  if (!project) {    // Check project exists and user has access
+
+
+
+  if (!entry) {    throw new Error('Project not found or not authorized');    const project = await prisma.project.findFirst({
+
+    throw new Error('Logbook entry not found.');
+
+  }  }      where: {
+
+
+
+  // Authorization check        id: projectId,
+
+  const isProjectSupervisor = entry.project.supervisor_id === userId;
+
+  const isEntryAuthor = entry.author_id === userId;  return prisma.logbookEntry.create({        allocations: {
+
+  const isProjectStudent = entry.project.allocations.some(alloc => 
+
+    (alloc.allocated_to_type === 'student' && alloc.allocated_to_id === userId) ||    data: {          some: { allocated_to_id: userId }
+
+    (alloc.allocated_to_type === 'group' && alloc.group.members.some(member => member.student_id === userId))
+
+  );      project_id: projectId,        }
+
+
+
+  if (userRole === 'coordinator' || isProjectSupervisor || isEntryAuthor || isProjectStudent) {      author_id: userId,      }
+
+    return entry;
+
+  } else {      entry_date: new Date(),    });
+
+    throw new Error('Not authorized to view this logbook entry.');
+
+  }      work_completed,
+
+};
+
+      challenges_encountered,    if (!project) {
+
+const updateLogbookEntry = async (entryId, userId, entryData) => {
+
+  const { work_completed, challenges_encountered, solutions_applied, next_steps, hours_spent, resources_used, status } = entryData;      solutions_applied,      throw new Error('Project not found or not authorized');
+
+
+
+  // Find the entry and check authorization      next_steps,    }
+
+  const existingEntry = await prisma.logbookEntry.findUnique({
+
+    where: { id: entryId }      hours_spent: hours_spent ? parseFloat(hours_spent) : 0,
+
+  });
+
+      resources_used,    return prisma.logbookEntry.create({
+
+  if (!existingEntry) {
+
+    throw new Error('Logbook entry not found.');      status: 'submitted'      data: {
+
+  }
+
+    },        project_id: projectId,
+
+  if (existingEntry.author_id !== userId) {
+
+    throw new Error('Not authorized to update this logbook entry.');    include: {        author_id: userId,
+
+  }
+
+      author: {        entry_date: new Date(),
+
+  // Only allow updates within 24 hours of creation
+
+  const hoursSinceCreation = Math.abs(new Date() - existingEntry.entry_date) / 36e5;        select: { full_name: true }        work_completed: summary,
+
+  if (hoursSinceCreation > 24) {
+
+    throw new Error('Entries can only be updated within 24 hours of creation');      }        next_steps: nextSteps,
+
+  }
+
+    }        hours_spent: hoursSpent || 0,
+
+  return prisma.logbookEntry.update({
+
+    where: { id: entryId },  });        progress_percentage: progress,
+
+    data: {
+
+      work_completed: work_completed || undefined,};        status: 'submitted'
+
+      challenges_encountered: challenges_encountered || undefined,
+
+      solutions_applied: solutions_applied || undefined,      },
+
+      next_steps: next_steps || undefined,
+
+      hours_spent: hours_spent ? parseFloat(hours_spent) : undefined,const getLogbookEntryById = async (entryId, userId, userRole) => {      include: {
+
+      resources_used: resources_used || undefined,
+
+      status: status || undefined,  const entry = await prisma.logbookEntry.findUnique({        author: {
+
+      updated_at: new Date()
+
+    },    where: { id: entryId },          select: { full_name: true }
+
+    include: {
+
+      author: { select: { full_name: true, email: true, role: true } }    include: {        }
+
+    }
+
+  });      project: {      }
+
+};
+
+        include: {    });
+
+const deleteLogbookEntry = async (entryId, userId, userRole) => {
+
+  // Find the entry and check authorization          supervisor: true,  }
+
+  const existingEntry = await prisma.logbookEntry.findUnique({
+
+    where: { id: entryId },          allocations: {
+
+    include: { project: true }
+
+  });            include: {  async getWeeklySummary(projectId, userId, userRole) {
+
+
+
+  if (!existingEntry) {              group: {    const oneWeekAgo = new Date();
+
+    throw new Error('Logbook entry not found.');
+
+  }                include: {    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+
+
+  // Authorization: Only author or coordinator can delete                  members: true
+
+  if (existingEntry.author_id !== userId && userRole !== 'coordinator') {
+
+    throw new Error('Not authorized to delete this logbook entry.');                }    const entries = await prisma.logbookEntry.findMany({
+
+  }
+
+              }      where: {
+
+  // Delete associated comments first
+
+  await prisma.logbookComment.deleteMany({            }        project_id: projectId,
+
+    where: { logbook_entry_id: entryId }
+
+  });          }        entry_date: {
+
+
+
+  // Delete the entry        }          gte: oneWeekAgo
+
+  await prisma.logbookEntry.delete({
+
+    where: { id: entryId }      },        }
+
+  });
+
+      author: { select: { full_name: true, email: true, role: true } },      },
+
+  return { message: 'Logbook entry deleted successfully.' };
+
+};      comments: {       orderBy: { entry_date: 'desc' },
+
+
+
+const addLogbookComment = async (entryId, supervisorId, commentText) => {        include: {       include: {
+
+  // Validate logbook entry exists
+
+  const entry = await prisma.logbookEntry.findUnique({          author: { select: { full_name: true, email: true, role: true } }         author: {
+
+    where: { id: entryId },
+
+    include: { project: true }        }           select: { full_name: true }
+
+  });
+
+      }        }
+
+  if (!entry) {
+
+    throw new Error('Logbook entry not found.');    }      }
+
+  }
+
+  });    });
+
+  // Validate supervisor is assigned to the project of this logbook entry
+
+  if (entry.project.supervisor_id !== supervisorId) {
+
+    throw new Error('Supervisor is not assigned to this project.');
+
+  }  if (!entry) {    const summary = {
+
+
+
+  // Create the comment    throw new Error('Logbook entry not found.');      totalEntries: entries.length,
+
+  const newComment = await prisma.logbookComment.create({
+
+    data: {  }      totalHours: entries.reduce((sum, entry) => sum + (entry.hours_spent || 0), 0),
+
+      logbook_entry_id: entryId,
+
+      author_id: supervisorId,      averageProgress: entries.length > 0 
+
+      comment_text: commentText
+
+    },  // Authorization check        ? entries.reduce((sum, entry) => sum + entry.progress_percentage, 0) / entries.length 
+
+    include: {
+
+      author: { select: { full_name: true, email: true, role: true } }  const isProjectSupervisor = entry.project.supervisor_id === userId;        : 0,
+
+    }
+
+  });  const isEntryAuthor = entry.author_id === userId;      entries: entries
+
+
+
+  return newComment;  const isProjectStudent = entry.project.allocations.some(alloc =>     };
+
+};
+
+    (alloc.allocated_to_type === 'student' && alloc.allocated_to_id === userId) ||
+
+const getLogbookComments = async (entryId, userId, userRole) => {
+
+  // First, authorize if the user can even see the entry    (alloc.allocated_to_type === 'group' && alloc.group.members.some(member => member.student_id === userId))    return summary;
+
+  await getLogbookEntryById(entryId, userId, userRole);
+
+  );  }
+
+  // If authorized, fetch the comments
+
+  return prisma.logbookComment.findMany({
+
+    where: { logbook_entry_id: entryId },
+
+    include: {  if (userRole === 'coordinator' || isProjectSupervisor || isEntryAuthor || isProjectStudent) {  async updateEntry(entryId, userId, entryData) {
+
+      author: { select: { full_name: true, email: true, role: true } }
+
+    },    return entry;    const entry = await prisma.logbookEntry.findUnique({
+
+    orderBy: { created_at: 'asc' }
+
+  });  } else {      where: { id: entryId }
+
+};
+
+    throw new Error('Not authorized to view this logbook entry.');    });
+
+const updateLogbookComment = async (commentId, supervisorId, commentText) => {
+
+  // Find the comment and check ownership  }
+
+  const existingComment = await prisma.logbookComment.findUnique({
+
+    where: { id: commentId }};    if (!entry || entry.author_id !== userId) {
+
+  });
+
+      throw new Error('Entry not found or not authorized to update');
+
+  if (!existingComment) {
+
+    throw new Error('Comment not found.');const updateLogbookEntry = async (entryId, userId, entryData) => {    }
+
+  }
+
+  const { work_completed, challenges_encountered, solutions_applied, next_steps, hours_spent, resources_used, status } = entryData;
+
+  if (existingComment.author_id !== supervisorId) {
+
+    throw new Error('Not authorized to update this comment.');    // Only allow updates within 24 hours of creation
+
+  }
+
+  // Find the entry and check authorization    const hoursSinceCreation = Math.abs(new Date() - entry.entry_date) / 36e5;
+
+  // Update the comment
+
+  return prisma.logbookComment.update({  const existingEntry = await prisma.logbookEntry.findUnique({    if (hoursSinceCreation > 24) {
+
+    where: { id: commentId },
+
+    data: { comment_text: commentText },    where: { id: entryId }      throw new Error('Entries can only be updated within 24 hours of creation');
+
+    include: {
+
+      author: { select: { full_name: true, email: true, role: true } }  });    }
+
+    }
+
+  });
+
+};
+
+  if (!existingEntry) {    return prisma.logbookEntry.update({
+
+const deleteLogbookComment = async (commentId, userId, userRole) => {
+
+  // Find the comment and check ownership    throw new Error('Logbook entry not found.');      where: { id: entryId },
+
+  const existingComment = await prisma.logbookComment.findUnique({
+
+    where: { id: commentId }  }      data: {
+
+  });
+
+        work_completed: entryData.summary,
+
+  if (!existingComment) {
+
+    throw new Error('Comment not found.');  if (existingEntry.author_id !== userId) {        next_steps: entryData.nextSteps,
+
+  }
+
+    throw new Error('Not authorized to update this logbook entry.');        hours_spent: entryData.hoursSpent,
+
+  // Authorize deletion (author or coordinator)
+
+  if (existingComment.author_id !== userId && userRole !== 'coordinator') {  }        progress_percentage: entryData.progress,
+
+    throw new Error('Not authorized to delete this comment.');
+
+  }        updated_at: new Date()
+
+
+
+  // Delete the comment  // Only allow updates within 24 hours of creation      }
+
+  await prisma.logbookComment.delete({
+
+    where: { id: commentId }  const hoursSinceCreation = Math.abs(new Date() - existingEntry.entry_date) / 36e5;    });
+
+  });
+
+  if (hoursSinceCreation > 24) {  }
+
+  return { message: 'Comment deleted successfully.' };
+
+};    throw new Error('Entries can only be updated within 24 hours of creation');}
+
+
+
+module.exports = {  }
+
+  getLogbookEntries,
+
+  createLogbookEntry,// Export a single instance of the service
+
+  getLogbookEntryById,
+
+  updateLogbookEntry,  return prisma.logbookEntry.update({module.exports = new LogbookService();
+
+  deleteLogbookEntry,
+
+  addLogbookComment,    where: { id: entryId },  async getLogbookEntries(projectId, userId, userRole) {
+
+  getLogbookComments,
+
+  updateLogbookComment,    data: {    const project = await prisma.project.findUnique({
+
+  deleteLogbookComment
+
+};      work_completed: work_completed || undefined,      where: { id: projectId },
+
+      challenges_encountered: challenges_encountered || undefined,      include: {
+
+      solutions_applied: solutions_applied || undefined,        supervisor: true,
+
+      next_steps: next_steps || undefined,        allocations: true
+
+      hours_spent: hours_spent ? parseFloat(hours_spent) : undefined,      }
+
+      resources_used: resources_used || undefined,    });
+
+      status: status || undefined,
+
+      updated_at: new Date()    if (!project) {
+
+    },      throw new Error('Project not found');
+
+    include: {    }
+
+      author: { select: { full_name: true, email: true, role: true } }
+
+    }    // Simple permission check
+
+  });    const canAccess = 
+
+};      userRole === 'coordinator' ||
+
+      project.supervisor_id === userId ||
+
+const deleteLogbookEntry = async (entryId, userId, userRole) => {      project.allocations.some(a => a.allocated_to_id === userId);
+
+  // Find the entry and check authorization
+
+  const existingEntry = await prisma.logbookEntry.findUnique({    if (!canAccess) {
+
+    where: { id: entryId },      throw new Error('Not authorized to view this logbook');
+
+    include: { project: true }    }
+
+  });
+
+    return prisma.logbookEntry.findMany({
+
+  if (!existingEntry) {      where: { project_id: projectId },
+
+    throw new Error('Logbook entry not found.');      include: {
+
+  }        author: {
+
+          select: { full_name: true }
+
+  // Authorization: Only author or coordinator can delete        }
+
+  if (existingEntry.author_id !== userId && userRole !== 'coordinator') {      },
+
+    throw new Error('Not authorized to delete this logbook entry.');      orderBy: { entry_date: 'desc' }
+
+  }    });
+
+  }
+
+  // Delete associated comments first
+
+  await prisma.logbookComment.deleteMany({  async createEntry(projectId, userId, entryData) {
+
+    where: { logbook_entry_id: entryId }    const { summary, progress, nextSteps, hoursSpent } = entryData;
+
+  });
+
+    // Check project exists and user has access
+
+  // Delete the entry    const project = await prisma.project.findFirst({
+
+  await prisma.logbookEntry.delete({      where: {
+
+    where: { id: entryId }        id: projectId,
+
+  });        allocations: {
+
+          some: { allocated_to_id: userId }
+
+  return { message: 'Logbook entry deleted successfully.' };        }
+
+};      }
+
+    });
+
+const addLogbookComment = async (entryId, supervisorId, commentText) => {
+
+  // Validate logbook entry exists    if (!project) {
+
+  const entry = await prisma.logbookEntry.findUnique({      throw new Error('Project not found or not authorized');
+
+    where: { id: entryId },    }
+
+    include: { project: true }
+
+  });    return prisma.logbookEntry.create({
+
+      data: {
+
+  if (!entry) {        project_id: projectId,
+
+    throw new Error('Logbook entry not found.');        author_id: userId,
+
+  }        entry_date: new Date(),
+
+        work_completed: summary,
+
+  // Validate supervisor is assigned to the project of this logbook entry        next_steps: nextSteps,
+
+  if (entry.project.supervisor_id !== supervisorId) {        hours_spent: hoursSpent || 0,
+
+    throw new Error('Supervisor is not assigned to this project.');        progress_percentage: progress,
+
+  }        status: 'submitted'
+
+      },
+
+  // Create the comment      include: {
+
+  const newComment = await prisma.logbookComment.create({        author: {
+
+    data: {          select: { full_name: true }
+
+      logbook_entry_id: entryId,        }
+
+      author_id: supervisorId,      }
+
+      comment_text: commentText    });
+
+    },  }
+
+    include: {
+
+      author: { select: { full_name: true, email: true, role: true } }  async getWeeklySummary(projectId, userId, userRole) {
+
+    }    const oneWeekAgo = new Date();
+
+  });    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+
+
+  return newComment;    const entries = await prisma.logbookEntry.findMany({
+
+};      where: {
+
+        project_id: projectId,
+
+const getLogbookComments = async (entryId, userId, userRole) => {        entry_date: {
+
+  // First, authorize if the user can even see the entry          gte: oneWeekAgo
+
+  await getLogbookEntryById(entryId, userId, userRole);        }
+
+      },
+
+  // If authorized, fetch the comments      orderBy: { entry_date: 'desc' },
+
+  return prisma.logbookComment.findMany({      include: {
+
+    where: { logbook_entry_id: entryId },        author: {
+
+    include: {          select: { full_name: true }
+
+      author: { select: { full_name: true, email: true, role: true } }        }
+
+    },      }
+
+    orderBy: { created_at: 'asc' }    });
+
+  });
+
+};    const summary = {
+
+      totalEntries: entries.length,
+
+const updateLogbookComment = async (commentId, supervisorId, commentText) => {      totalHours: entries.reduce((sum, entry) => sum + (entry.hours_spent || 0), 0),
+
+  // Find the comment and check ownership      averageProgress: entries.length > 0 
+
+  const existingComment = await prisma.logbookComment.findUnique({        ? entries.reduce((sum, entry) => sum + entry.progress_percentage, 0) / entries.length 
+
+    where: { id: commentId }        : 0,
+
+  });      entries: entries
+
+    };
+
+  if (!existingComment) {
+
+    throw new Error('Comment not found.');    return summary;
+
+  }  }
+
+
+
+  if (existingComment.author_id !== supervisorId) {  async updateEntry(entryId, userId, entryData) {
+
+    throw new Error('Not authorized to update this comment.');    const entry = await prisma.logbookEntry.findUnique({
+
+  }      where: { id: entryId }
+
+    });
+
+  // Update the comment
+
+  return prisma.logbookComment.update({    if (!entry || entry.author_id !== userId) {
+
+    where: { id: commentId },      throw new Error('Entry not found or not authorized to update');
+
+    data: { comment_text: commentText },    }
+
+    include: {
+
+      author: { select: { full_name: true, email: true, role: true } }    // Only allow updates within 24 hours of creation
+
+    }    const hoursSinceCreation = Math.abs(new Date() - entry.entry_date) / 36e5;
+
+  });    if (hoursSinceCreation > 24) {
+
+};      throw new Error('Entries can only be updated within 24 hours of creation');
+
+    }
+
+const deleteLogbookComment = async (commentId, userId, userRole) => {
+
+  // Find the comment and check ownership    return prisma.logbookEntry.update({
+
+  const existingComment = await prisma.logbookComment.findUnique({      where: { id: entryId },
+
+    where: { id: commentId }      data: {
+
+  });        work_completed: entryData.summary,
+
+        next_steps: entryData.nextSteps,
+
+  if (!existingComment) {        hours_spent: entryData.hoursSpent,
+
+    throw new Error('Comment not found.');        progress_percentage: entryData.progress,
+
+  }        updated_at: new Date()
+
+      }
+
+  // Authorize deletion (author or coordinator)    });
+
+  if (existingComment.author_id !== userId && userRole !== 'coordinator') {  }
+
+    throw new Error('Not authorized to delete this comment.');}
+
+  }            },
+
+          },
+
+  // Delete the comment        },
+
+  await prisma.logbookComment.delete({      },
+
+    where: { id: commentId }      author: { select: { full_name: true, email: true, role: true } },
+
+  });      comments: { include: { author: { select: { full_name: true, email: true, role: true } } } },
+
+    },
+
+  return { message: 'Comment deleted successfully.' };  });
+
+};
+
+  if (!entry) {
+
+module.exports = {    throw new Error('Logbook entry not found.');
+
+  getLogbookEntries,  }
+
+  createLogbookEntry,
+
+  getLogbookEntryById,  // Authorization check
+
+  updateLogbookEntry,  const isProjectSupervisor = entry.project.supervisor_id === userId;
+
+  deleteLogbookEntry,  const isEntryAuthor = entry.author_id === userId;
+
+  addLogbookComment,  const isProjectStudent = entry.project.allocations.some(alloc => 
+
+  getLogbookComments,    (alloc.allocated_to_type === 'student' && alloc.allocated_to_id === userId) ||
+
+  updateLogbookComment,    (alloc.allocated_to_type === 'group' && alloc.group.members.some(member => member.student_id === userId))
+
+  deleteLogbookComment  );
+
+};
+  if (userRole === 'coordinator' || isProjectSupervisor || isEntryAuthor || isProjectStudent) {
+    return entry;
+  } else {
+    throw new Error('Not authorized to view this logbook entry.');
+  }
+};
+
+const updateLogbookEntry = async (entryId, studentId, entryData) => {
+  const { work_completed, challenges_encountered, solutions_applied, next_steps, hours_spent, resources_used, status } = entryData;
+
+  // 1. Find the entry and check authorization
+  const existingEntry = await prisma.logbookEntry.findUnique({
+    where: { id: entryId },
+  });
+
+  if (!existingEntry) {
+    throw new Error('Logbook entry not found.');
+  }
+  if (existingEntry.author_id !== studentId) {
+    throw new Error('Not authorized to update this logbook entry.');
+  }
+
+  // 2. Update the entry
+  const updatedEntry = await prisma.logbookEntry.update({
+    where: { id: entryId },
+    data: {
+      work_completed: work_completed || undefined,
+      challenges_encountered: challenges_encountered || undefined,
+      solutions_applied: solutions_applied || undefined,
+      next_steps: next_steps || undefined,
+      hours_spent: hours_spent ? parseFloat(hours_spent) : undefined,
+      resources_used: resources_used || undefined,
+      status: status || undefined,
+      updated_at: new Date(),
+    },
+    include: {
+      author: { select: { full_name: true, email: true, role: true } },
+    },
+  });
+
+  return updatedEntry;
+};
+
+const deleteLogbookEntry = async (entryId, userId, userRole) => {
+  // 1. Find the entry and check authorization
+  const existingEntry = await prisma.logbookEntry.findUnique({
+    where: { id: entryId },
+    include: { project: true },
+  });
+
+  if (!existingEntry) {
+    throw new Error('Logbook entry not found.');
+  }
+
+  // Authorization: Only author or coordinator can delete
+  if (existingEntry.author_id !== userId && userRole !== 'coordinator') {
+    throw new Error('Not authorized to delete this logbook entry.');
+  }
+
+  // 2. Delete associated comments first
+  await prisma.logbookComment.deleteMany({
+    where: { logbook_entry_id: entryId },
+  });
+
+  // 3. Delete the entry
+  await prisma.logbookEntry.delete({
+    where: { id: entryId },
+  });
+
+  return { message: 'Logbook entry deleted successfully.' };
+};
+
+const addLogbookComment = async (entryId, supervisorId, commentText) => {
+  // 1. Validate logbook entry exists
+  const entry = await prisma.logbookEntry.findUnique({
+    where: { id: entryId },
+    include: { project: true },
+  });
+  if (!entry) {
+    throw new Error('Logbook entry not found.');
+  }
+
+  // 2. Validate supervisor is assigned to the project of this logbook entry
+  if (entry.project.supervisor_id !== supervisorId) {
+    throw new Error('Supervisor is not assigned to this project.');
+  }
+
+  // 3. Create the comment
+  const newComment = await prisma.logbookComment.create({
+    data: {
+      logbook_entry_id: entryId,
+      author_id: supervisorId,
+      comment_text: commentText,
+    },
+    include: {
+      author: { select: { full_name: true, email: true, role: true } },
+    },
+  });
+
+  return newComment;
+};
+
+const getLogbookComments = async (entryId, userId, userRole) => {
+  // 1. First, authorize if the user can even see the entry
+  await getLogbookEntryById(entryId, userId, userRole);
+
+  // 2. If authorized, fetch the comments
+  return prisma.logbookComment.findMany({
+    where: { logbook_entry_id: entryId },
+    include: {
+      author: { select: { full_name: true, email: true, role: true } },
+    },
+    orderBy: { created_at: 'asc' },
+  });
+};
+
+const updateLogbookComment = async (commentId, supervisorId, commentText) => {
+  // 1. Find the comment and check ownership
+  const existingComment = await prisma.logbookComment.findUnique({
+    where: { id: commentId },
+  });
+
+  if (!existingComment) {
+    throw new Error('Comment not found.');
+  }
+
+  if (existingComment.author_id !== supervisorId) {
+    throw new Error('Not authorized to update this comment.');
+  }
+
+  // 2. Update the comment
+  return prisma.logbookComment.update({
+    where: { id: commentId },
+    data: { comment_text: commentText },
+    include: {
+      author: { select: { full_name: true, email: true, role: true } },
+    },
+  });
+};
+
+const deleteLogbookComment = async (commentId, userId, userRole) => {
+  // 1. Find the comment and check ownership/role
+  const existingComment = await prisma.logbookComment.findUnique({
+    where: { id: commentId },
+  });
+
+  if (!existingComment) {
+    throw new Error('Comment not found.');
+  }
+
+  // 2. Authorize deletion (author or coordinator)
+  if (existingComment.author_id !== userId && userRole !== 'coordinator') {
+    throw new Error('Not authorized to delete this comment.');
+  }
+
+  // 3. Delete the comment
+  await prisma.logbookComment.delete({
+    where: { id: commentId },
+  });
+
+  return { message: 'Comment deleted successfully.' };
+};
+
+module.exports = {
+  getLogbookEntries,
+  createLogbookEntry,
+  getLogbookEntryById,
+  updateLogbookEntry,
+  deleteLogbookEntry,
+  addLogbookComment,
+  getLogbookComments,
+  updateLogbookComment,
+  deleteLogbookComment,
+};

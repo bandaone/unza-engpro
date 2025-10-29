@@ -1,0 +1,5 @@
+echo -- Create user and grant privileges for Prisma migrations > "C:\PROJECT\unza-engpro\db\init\01-init.sql"
+echo CREATE USER IF NOT EXISTS 'unza_user'@'%' IDENTIFIED BY 'root4321at'; >> "C:\PROJECT\unza-engpro\db\init\01-init.sql"
+echo GRANT ALL PRIVILEGES ON unza_engpro.* TO 'unza_user'@'%'; >> "C:\PROJECT\unza-engpro\db\init\01-init.sql"
+echo GRANT ALL PRIVILEGES ON *.* TO 'unza_user'@'%'; >> "C:\PROJECT\unza-engpro\db\init\01-init.sql"
+echo FLUSH PRIVILEGES; >> "C:\PROJECT\unza-engpro\db\init\01-init.sql"
