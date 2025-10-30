@@ -35,7 +35,7 @@ const defaultStats: DepartmentStats = {
 export const HodDashboard: React.FC = () => {
   const { user } = useAuthStore();
 
-  const { data: departmentStats } = useQuery({
+  const { data: departmentStats = defaultStats } = useQuery<DepartmentStats>({
     queryKey: ['departmentStats', user?.department],
     queryFn: () => apiService.departments.getStats(user?.department || ''),
     enabled: !!user?.department,

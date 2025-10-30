@@ -32,22 +32,19 @@ const defaultGlobalStats: GlobalStats = {
 };
 
 export const CoordinatorDashboard: React.FC = () => {
-  const { data: globalStats } = useQuery({
+  const { data: globalStats = defaultGlobalStats } = useQuery<GlobalStats>({
     queryKey: ['globalStats'],
     queryFn: () => apiService.stats.getGlobal(),
-    initialData: defaultGlobalStats,
   });
 
-  const { data: issues } = useQuery({
+  const { data: issues = [] } = useQuery<Issue[]>({
     queryKey: ['globalIssues'],
     queryFn: () => apiService.stats.getGlobalIssues(),
-    initialData: [],
   });
 
-  const { data: departments } = useQuery({
+  const { data: departments = [] } = useQuery<Department[]>({
     queryKey: ['departments'],
     queryFn: () => apiService.departments.getAll(),
-    initialData: [],
   });
 
   const safeDepartments = departments || [];

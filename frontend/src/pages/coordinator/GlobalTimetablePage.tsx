@@ -4,9 +4,10 @@ import { TimetableView } from '../../components/timetable/TimetableView';
 import { TimetableGeneration } from '../../components/timetable/TimetableGeneration';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../../services/apiService';
+import { TimetableEvent } from '../../types';
 
 export const GlobalTimetablePage: React.FC = () => {
-  const { data: timetable = { events: [] } } = useQuery({
+  const { data: timetable = { events: [] } } = useQuery<{ events: TimetableEvent[] }>({
     queryKey: ['globalTimetable'],
     queryFn: () => apiService.timetable.getGlobal(),
   });

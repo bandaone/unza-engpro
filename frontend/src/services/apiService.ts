@@ -5,11 +5,34 @@ export const api = axios.create({
   baseURL: '', // The /api prefix is already added by the backend
 });
 
-async function unwrap<T>(p: Promise<import('axios').AxiosResponse<ApiResponse<T>>>) {
+async function unwrap<T>(p: Promise<import('axios').AxiosResponse<ApiResponse<T>>>): Promise<T> {
   const res = await p;
-  // prefer res.data.data if present, else res.data
-  // @ts-ignore
-  return (res.data && (res.data as any).data !== undefined) ? (res.data as any).data : res.data;
+  
+  // Ensure we always have a response with data property
+  if (!res.data) {
+    throw new Error('Invalid API response structure');
+  }
+
+  // If the response has a data property that's an ApiResponse
+  if ('data' in res.data) {
+    return (res.data as ApiResponse<T>).data;
+  }
+
+  // Handle array responses
+  if (Array.isArray(res.data)) {
+    return res.data as T;
+  }
+
+  // Handle null/undefined for array types
+  if (res.data === null || res.data === undefined) {
+    // If T is an array type, return empty array
+    if (Array.isArray([])) {
+      return [] as unknown as T;
+    }
+  }
+
+  // Return whatever data we got
+  return res.data as T;
 }
 
 export const apiService = {

@@ -19,12 +19,12 @@ export interface ApiResponse<T> {
 export interface Issue {
   id: number;
   message: string;
-  severity: 'error' | 'warning' | 'info';
+  severity: 'error' | 'warning';  // Removed 'info' as it's not used
   department?: string;
   status: 'open' | 'assigned' | 'resolved';
   createdAt: string;
   updatedAt: string;
-  type?: string; // Added this property
+  type: string;
 }
 
 export interface Department {
@@ -38,7 +38,7 @@ export interface Department {
 }
 
 export interface Course {
-  id?: number;
+  id: number;  // Changed from optional to required for TimetableEvent usage
   code: string;
   name: string;
   department: string;
@@ -55,7 +55,7 @@ export interface Course {
 }
 
 export interface Group {
-  id?: number;
+  id: number;  // Changed from optional to required for TimetableEvent usage
   name: string;
   department: string;
   capacity: number;
@@ -71,7 +71,7 @@ export interface LecturerPreferences {
 }
 
 export interface Lecturer {
-  id?: number;
+  id: number;  // Changed from optional to required for TimetableEvent usage
   name: string;
   email?: string;
   department: string;
@@ -85,7 +85,7 @@ export interface Lecturer {
 }
 
 export interface Room {
-  id?: number; // Made optional for creation
+  id: number;  // Changed from optional to required for TimetableEvent usage
   name: string;
   capacity: number;
   type: 'classroom' | 'lab' | 'special';
@@ -117,7 +117,7 @@ export interface GlobalStats {
 }
 
 export interface TimetableEvent {
-  id: string;
+  id: number;  // Changed from string to number to match component expectation
   title: string;
   start: string;
   end: string;
@@ -127,6 +127,11 @@ export interface TimetableEvent {
   roomId: number;
   type: 'lecture' | 'lab' | 'practical';
   department: string;
+  course: Course;
+  room: Room;
+  group: Group;
+  lecturer: Lecturer;
+  day: string;  // Changed from number to string to match component expectation
 }
 
 export interface TimetableStatus {

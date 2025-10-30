@@ -43,15 +43,27 @@ export const LoginPage: React.FC = () => {
         justifyContent: 'center',
         minHeight: '100vh',
         backgroundColor: '#f0f2f5',
+        padding: '20px',
       }}
     >
-      <Container component="main" maxWidth="xs">
-        <Paper elevation={6} sx={{ p: 4, mt: -8 }}>
+      <Container component="main" maxWidth="sm" sx={{ m: 0 }}>
+        <Paper 
+          elevation={6} 
+          sx={{ 
+            p: 4,
+            width: '100%',
+            maxWidth: '400px',
+            mx: 'auto',
+            borderRadius: 2,
+            backgroundColor: 'white',
+          }}
+        >
           <Box
             sx={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
+              width: '100%',
             }}
           >
             <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
