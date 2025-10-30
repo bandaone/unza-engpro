@@ -1,0 +1,74 @@
+1. System Structure
+
+A. Departmental (HOD) Portal
+Each department has its own secure login.
+HODs (or delegates) enter and manage:
+Courses (with all details: code, hours, labs, equipment, year, etc.)
+Groups (with size, year, department, etc.)
+Lecturers (with availability, expertise, etc.)
+Course-to-group and lecturer assignments
+Lab/equipment needs
+
+B. Central Coordinator Portal
+Coordinator manages:
+Global resources (venues, labs, special rooms)
+Global constraints (university-wide policies, holidays, etc.)
+Aggregates all departmental data for timetable generation
+Reviews and resolves cross-departmental conflicts
+
+2. Data Flow & Validation
+A. Departmental Data Entry & Validation
+Real-time validation: As HODs enter data, the system checks for:
+Missing or inconsistent fields
+Overlapping lecturer assignments within the department
+Group hour overloads
+Lab/equipment overbooking within the department
+Immediate feedback: HODs see and fix issues before submitting.
+
+B. Data Aggregation & Global Validation
+All department data is merged.
+Automated global checks:
+Room/lab overbooking across all departments
+Lecturer double-booking across departments
+Total demand vs. available slots/rooms
+Equipment/resource conflicts
+Conflict dashboard: Coordinator sees all unresolved issues.
+
+3. Error/Issue Resolution Workflow
+Step	Actor	Action/Tool
+Data entry	HOD	Department portal (web UI, real-time checks)
+Dept. validation	System	Automated, immediate feedback in UI
+Dept. correction	HOD	Fixes flagged issues before submission
+Data aggregation	System	Merges all department data
+Global validation	System	Automated, cross-department checks
+Conflict review	Coordinator	Dashboard (web UI) for all global issues
+Issue assignment	Coordinator	Assigns issues to relevant HODs for resolution
+Final correction	HOD/Coord.	Departments/coordinator fix and resubmit
+Timetable run	Coordinator	Runs solver (e.g., Google OR-Tools, Gurobi)
+Result review	All	Review, minor manual tweaks if needed
+
+4. Best-in-Class Tools
+Backend: Python (FastAPI), PostgreSQL, SQLAlchemy
+Frontend: React or Vue.js for responsive, real-time UI
+Solver: Google OR-Tools (open-source, world-class), or Gurobi/CPLEX for very large/complex cases
+Validation: Python (pydantic, custom logic), SQL queries, real-time feedback in UI
+Authentication: OAuth2, SSO, or university LDAP integration
+Deployment: Docker, Docker Compose, cloud-ready (AWS, Azure, GCP)
+Monitoring: Sentry (error tracking), Prometheus/Grafana (metrics)
+
+5. Key Features for Clean Data and Success
+Role-based access: HODs see only their department; coordinator sees all.
+Audit trail: All changes are logged (who, what, when).
+Iterative feedback: Issues are flagged early and often, not just at the end.
+Conflict resolution: System suggests solutions (e.g., move lab, split group).
+Export/import: CSV/Excel support for bulk edits if needed.
+
+6. Sample Workflow
+HOD logs in, enters/updates all department data.
+System flags any issues (missing info, double-booked lecturer, etc.).
+HOD fixes issues and submits.
+Coordinator aggregates all data, runs global validation.
+System flags cross-department issues (e.g., two departments want the same lab at the same time).
+Coordinator assigns issues back to departments or resolves directly.
+Once all issues are cleared, coordinator runs the solver.
+Timetable is generated and published; departments review and request minor tweaks if needed.

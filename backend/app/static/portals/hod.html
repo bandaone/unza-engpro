@@ -1,0 +1,219 @@
+'<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HOD Portal</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
+    header { padding: 12px 16px; border-bottom: 1px solid #eee; display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+    .container { padding: 16px; max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
+    .panel { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fff; }
+    h3 { margin: 0; }
+    h4 { margin: 0 0 8px 0; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    input, select { padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+    .btn { padding: 8px 10px; background: #1976d2; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    .btn.secondary { background: #555; }
+    .small { color: #555; font-size: 12px; }
+    .error { color: #b91c1c; font-size: 12px; }
+    .list { display: grid; gap: 8px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+    .day { font-weight: 700; margin-bottom: 6px; }
+    nav a { margin-right: 10px; text-decoration: none; color: #1976d2; }
+    .login { max-width: 420px; margin: 24px auto; }
+    .muted { color: #6b7280; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h3>Timetable Portal — HOD</h3>
+      <nav>
+        <a href="/portals/index.html">Portals</a>
+        <a href="/">Admin</a>
+      </nav>
+    </div>
+    <div id="userBox" class="small"></div>
+  </header>
+
+  <div id="loginView" class="login panel">
+    <h4>Login</h4>
+    <div class="row" style="margin-top:8px;">
+      <input id="username" placeholder="Username" />
+      <input id="password" type="password" placeholder="Password" />
+      <button id="loginBtn" class="btn">Login</button>
+    </div>
+    <div id="loginMsg" class="small"></div>
+    <div class="small muted" style="margin-top:8px;">Use HOD credentials. Basic auth is used for requests.</div>
+  </div>
+
+  <div id="portalView" style="display:none;">
+    <div class="container">
+      <div class="panel">
+        <div class="row" style="justify-content: space-between; align-items: center;">
+          <h4 style="margin:0;">Department Schedule</h4>
+          <div class="toolbar">
+            <label class="small">Year</label>
+            <select id="yearFilter"><option value="">All</option></select>
+            <button id="refreshBtn" class="btn secondary">Refresh</button>
+          </div>
+        </div>
+        <div id="schedInfo" class="small" style="margin:6px 0 10px 0;"></div>
+        <div id="schedule" class="list"></div>
+      </div>
+
+      <div class="panel">
+        <h4>Issues (Department)</h4>
+        <div id="issuesInfo" class="small" style="margin:6px 0 10px 0;">Fetching…</div>
+        <div id="issuesList" class="list"></div>
+        <div class="small muted">Only the coordinator can assign or change status. This list updates automatically for your department.</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.7.2/dist/axios.min.js"></script>
+  <script>
+    // State
+    let AUTH = { username: null, password: null };
+    let CURRENT = { role: null, department: null };
+    let META = { groups: [], lecturers: [], rooms: [], courses: [] };
+
+    // Helpers
+    function setAuth(u, p){ AUTH.username=u; AUTH.password=p; axios.defaults.auth = { username: u, password: p }; }
+    function fmtTime(t){ return String(t).slice(0,5); }
+
+    async function login(){
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value;
+      const msg = document.getElementById('loginMsg'); msg.textContent = '';
+      if (!u || !p){ msg.textContent = 'Username and password required'; return; }
+      try {
+        setAuth(u,p);
+        const me = (await axios.get('/auth/me')).data;
+        if (me.role !== 'hod') { msg.textContent = 'HOD role required'; return; }
+        CURRENT.role = me.role; CURRENT.department = (me.department||'').toUpperCase();
+        document.getElementById('loginView').style.display = 'none';
+        document.getElementById('portalView').style.display = 'block';
+        document.getElementById('userBox').textContent = `${me.username} • ${me.role.toUpperCase()} • ${CURRENT.department}`;
+        await loadMeta();
+        await initYearFilter();
+        await refreshAll();
+      } catch (e) {
+        msg.textContent = e.response?.data?.detail || 'Login failed';
+        setAuth(null,null);
+      }
+    }
+
+    async function loadMeta(){
+      const [gr, le, ro, co] = await Promise.all([
+        axios.get('/entities/groups'),
+        axios.get('/entities/lecturers'),
+        axios.get('/entities/rooms'),
+        axios.get('/entities/courses'),
+      ]);
+      META.groups = gr.data || [];
+      META.lecturers = le.data || [];
+      META.rooms = ro.data || [];
+      META.courses = co.data || [];
+    }
+
+    function hodGroupFilter(g){
+      const dep = CURRENT.department;
+      if (!dep) return false;
+      const gd = (g.department||'').toUpperCase();
+      const yr = g.year || 0;
+      if (gd === dep) return true;
+      // Include common GEN for year 2
+      if (yr === 2 && gd === 'GEN') return true;
+      return false;
+    }
+
+    function buildMaps(){
+      const rmap = {}; for (const r of META.rooms) rmap[r.id] = r.name;
+      const cmap = {}; for (const c of META.courses) cmap[c.id] = `${c.code}`;
+      const gmap = {}; for (const g of META.groups) gmap[g.id] = `${g.name}${g.year?` (Y${g.year}`:''}${g.department?`${g.year?', ': ' ('}${g.department}`:''}${g.lecture_group?`, ${g.lecture_group}`:''}${(g.year||g.department||g.lecture_group)?')':''}`;
+      return { rmap, cmap, gmap };
+    }
+
+    function groupByDay(events){
+      const order = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const map = {}; for (const d of order) map[d] = [];
+      for (const e of events) if (map[e.day]) map[e.day].push(e);
+      for (const d of Object.keys(map)) map[d].sort((a,b)=> String(a.start).localeCompare(String(b.start)));
+      return map;
+    }
+
+    async function refreshSchedule(){
+      const schedEl = document.getElementById('schedule');
+      const infoEl = document.getElementById('schedInfo');
+      schedEl.innerHTML = ''; infoEl.textContent = 'Loading schedule…';
+      const yearSel = document.getElementById('yearFilter').value;
+
+      const deptGroups = META.groups.filter(hodGroupFilter);
+      const allowedGroupIds = new Set(deptGroups.filter(g => !yearSel || String(g.year||'') === String(yearSel)).map(g => g.id));
+      const all = (await axios.get('/timetable/events')).data || [];
+      const filtered = all.filter(ev => allowedGroupIds.has(ev.group_id));
+
+      const byDay = groupByDay(filtered);
+      const { rmap, cmap, gmap } = buildMaps();
+      const order = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      let total = 0;
+      for (const d of order){
+        const list = byDay[d] || [];
+        const card = document.createElement('div'); card.className = 'card';
+        const h = document.createElement('div'); h.className = 'day'; h.textContent = d; card.appendChild(h);
+        if (!list.length){
+          const em = document.createElement('div'); em.className = 'small muted'; em.textContent = 'No sessions'; card.appendChild(em);
+        } else {
+          for (const ev of list){
+            total++;
+            const row = document.createElement('div');
+            const course = cmap[ev.course_id] || `C${ev.course_id}`;
+            const room = rmap[ev.room_id] || `R${ev.room_id}`;
+            const grp = gmap[ev.group_id] || `G${ev.group_id}`;
+            row.innerHTML = `${fmtTime(ev.start)} - ${fmtTime(ev.end)} • ${course} • ${grp} • ${room}`;
+            card.appendChild(row);
+          }
+        }
+        schedEl.appendChild(card);
+      }
+      infoEl.textContent = `${total} sessions shown`;
+    }
+
+    async function refreshIssues(){
+      const listEl = document.getElementById('issuesList');
+      const infoEl = document.getElementById('issuesInfo');
+      listEl.innerHTML = ''; infoEl.textContent = 'Loading…';
+      try {
+        const res = await axios.get('/issues');
+        const items = res.data || [];
+        if (!items.length){ infoEl.textContent = 'No issues for your department.'; return; }
+        infoEl.textContent = `${items.length} issues`;
+        for (const it of items){
+          const card = document.createElement('div'); card.className = 'card';
+          const when = (it.created_at || '').toString().replace('T',' ').slice(0,19);
+          card.innerHTML = `<div><b>[${it.severity}]</b> ${it.issue_type} — <span class="small">${it.status}</span></div>`+
+                           `<div class="small">${it.message}</div>`+
+                           `<div class="small muted">${when}</div>`;
+          listEl.appendChild(card);
+        }
+      } catch (e){ infoEl.textContent = e.response?.data?.detail || 'Failed to load issues'; }
+    }
+
+    async function initYearFilter(){
+      const ySel = document.getElementById('yearFilter');
+      const deptGroups = META.groups.filter(hodGroupFilter);
+      const years = Array.from(new Set(deptGroups.map(g => g.year).filter(Boolean))).sort((a,b)=>a-b);
+      ySel.innerHTML = '<option value="">All</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+    }
+
+    async function refreshAll(){ await refreshSchedule(); await refreshIssues(); }
+
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+    document.getElementById('yearFilter').addEventListener('change', refreshSchedule);
+  </script>
+</body>
+</html>

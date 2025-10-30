@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Automated Timetable</title>
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/main.min.css" rel="stylesheet" />
+    <style>
+      :root { --primary: #1976d2; }
+      * { box-sizing: border-box; }
+      body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, sans-serif; margin: 0; }
+      header { padding: 12px 16px; border-bottom: 1px solid #eee; display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+      .container { display: grid; grid-template-columns: 390px 1fr; gap: 16px; padding: 12px; }
+      #calendar { width: 100%; }
+      .status { color: #444; font-size: 13px; }
+      .btn { padding: 8px 10px; background: var(--primary); color: white; border-radius: 6px; border: none; cursor: pointer; }
+      .btn.secondary { background: #555; }
+      .btn.warn { background: #b45309; }
+      .btn:disabled { background: #90caf9; cursor: not-allowed; }
+      .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+      .panel { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+      .panel h4 { margin: 0 0 8px 0; }
+      .row { display: flex; gap: 8px; align-items: center; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .field { display: flex; flex-direction: column; gap: 4px; }
+      .field label { font-size: 12px; color: #555; }
+      input[type="text"], input[type="number"], textarea, select { padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-family: inherit; }
+      textarea { min-height: 60px; }
+      .small { font-size: 12px; color: #666; }
+      ul.meta { list-style: none; padding-left: 0; max-height: 120px; overflow: auto; border: 1px solid #eee; border-radius: 6px; }
+      ul.meta li { padding: 4px 8px; border-bottom: 1px solid #f3f4f6; font-size: 12px; }
+      ul.meta li:last-child { border-bottom: none; }
+      .hint { color: #555; font-size: 12px; }
+      .error { color: #b91c1c; font-size: 12px; }
+      .ok { color: #166534; font-size: 12px; }
+    html, body { height: 100%; }
+    .container { height: calc(100vh - 64px); }
+    .right { height: 100%; display: grid; grid-template-rows: 65% 35%; gap: 12px; }
+    .export-frame { width: 100%; height: 100%; border: 1px solid #e5e7eb; background: #fff; }
+    .panel.tight { padding: 8px; }
+    #calendar { width: 100%; height: 100%; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <h3 style="margin:0;">Automated Timetable</h3>
+      </div>
+      <div class="toolbar">
+        <button id="generateBtn" class="btn">Generate Timetable</button>
+        <button id="exportHtmlBtn" class="btn secondary">Export (HTML)</button>
+        <span id="status" class="status"></span>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="left">
+        <!-- Create Room -->
+        <div class="panel">
+          <h4>Create Room</h4>
+          <form id="roomForm">
+            <div class="grid">
+              <div class="field"><label>Name</label><input id="r_name" type="text" placeholder="ENLT1" required /></div>
+              <div class="field"><label>Capacity</label><input id="r_capacity" type="number" min="1" placeholder="120" required /></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Furniture Type</label><input id="r_furniture" type="text" placeholder="lecture / lab" /></div>
+              <div class="field"><label>Equipment (comma)</label><input id="r_equip" type="text" placeholder="projector, audio" /></div>
+            </div>
+            <div class="field">
+              <label>Availability JSON (optional)</label>
+              <textarea id="r_avail" placeholder='{"Mon":[["07:00","17:00"]],"Tue":[["07:00","17:00"]],"Wed":[["07:00","17:00"]],"Thu":[["07:00","17:00"]],"Fri":[["07:00","17:00"]]}'></textarea>
+              <div class="hint">Leave blank to use default Mon–Fri 07:00–17:00.</div>
+            </div>
+            <div class="row" style="margin-top:8px; gap: 8px;">
+              <button type="submit" class="btn">Create Room</button>
+              <span id="roomMsg" class="small"></span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Create Group -->
+        <div class="panel">
+          <h4>Create Group</h4>
+          <form id="groupForm">
+            <div class="grid">
+              <div class="field"><label>Name</label><input id="g_name" type="text" placeholder="GEN-2Y-LG1" required /></div>
+              <div class="field"><label>Size</label><input id="g_size" type="number" min="1" placeholder="120" required /></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Year</label><input id="g_year" type="number" min="1" max="5" placeholder="2" /></div>
+              <div class="field"><label>Department</label><input id="g_dept" type="text" placeholder="GEN / AEN / CEE / EEE / GEE / MEC" /></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Lecture Group (2nd year GEN only)</label><input id="g_lg" type="text" placeholder="LG1 or LG2" /></div>
+              <div class="field"><label>Subgroup</label><input id="g_sub" type="text" placeholder="A / B / C / D" /></div>
+            </div>
+            <div class="row" style="margin-top:8px; gap: 8px;">
+              <button type="submit" class="btn">Create Group</button>
+              <span id="groupMsg" class="small"></span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Create Lecturer -->
+        <div class="panel">
+          <h4>Create Lecturer</h4>
+          <form id="lecturerForm">
+            <div class="grid">
+              <div class="field"><label>Department</label><select id="lect_dept_select"><option value="">-- select department --</option></select></div>
+              <div class="field"><label>Max daily load (min)</label><input id="l_load" type="number" min="0" placeholder="300" /></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Name</label><input id="l_name" type="text" placeholder="Dr Smith" required /></div>
+              <div class="field"></div>
+            </div>
+            <div class="field">
+              <label>Availability JSON (optional)</label>
+              <textarea id="l_avail" placeholder='{"Mon":[["07:00","17:00"]],"Tue":[["07:00","17:00"]],"Wed":[["07:00","17:00"]],"Thu":[["07:00","17:00"]],"Fri":[["07:00","17:00"]]}'></textarea>
+              <div class="hint">Leave blank to use default Mon–Fri 07:00–17:00.</div>
+            </div>
+            <div class="row" style="margin-top:8px; gap: 8px;">
+              <button type="submit" class="btn">Create Lecturer</button>
+              <span id="lecturerMsg" class="small"></span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Create Course -->
+        <div class="panel">
+          <h4>Create Course</h4>
+          <form id="courseForm">
+            <div class="grid">
+              <div class="field"><label>Course Code</label><input id="c_code" type="text" placeholder="EEE 2019" required /></div>
+              <div class="field"><label>Name</label><input id="c_name" type="text" placeholder="Circuits" required /></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Lecture session minutes</label><input id="c_sess_min" type="number" min="30" step="30" value="60" /></div>
+              <div class="field"><label>Lecture sessions per week</label><input id="c_lect_sessions" type="number" min="0" step="1" value="3" /></div>
+            </div>
+            <div style="margin-top:6px;">
+              <label><input id="c_is_project" type="checkbox" /> Project / Capstone course (no venue assignment)</label>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Computed lecture hours/week</label><input id="c_weekly_hours" type="number" value="3" readonly /></div>
+              <div class="field"><label>Lecture furniture_type</label><input id="c_req_furn" type="text" placeholder="lecture" /></div>
+            </div>
+            <div class="field"><label>Lecture equipment (comma)</label><input id="c_req_equip" type="text" placeholder="projector" /></div>
+
+            <hr />
+            <div class="row" style="justify-content: space-between;">
+              <div class="row">
+                <input id="c_has_lab" type="checkbox" />
+                <label for="c_has_lab">Has Lab</label>
+              </div>
+              <div class="grid">
+                <div class="field"><label>Department (optional)</label><select id="course_dept_select"><option value="">-- select department --</option></select></div>
+                <div class="field"><label>Or enter dept code</label><input id="c_department" type="text" placeholder="GEN / AEN" /></div>
+              </div>
+            </div>
+            <div id="labSection" style="display:none;">
+              <div class="grid">
+                <div class="field"><label>Labs per week</label><input id="c_lab_count" type="number" min="0" step="1" value="1" /></div>
+                <div class="field"><label>Lab session minutes</label><input id="c_lab_min" type="number" min="30" step="30" value="180" /></div>
+              </div>
+              <div class="grid">
+                <div class="field"><label>Lab furniture_type</label><input id="c_lab_furn" type="text" placeholder="lab" /></div>
+                <div class="field"><label>Lab equipment (comma)</label><input id="c_lab_equip" type="text" placeholder="lab-pcs, projector" /></div>
+              </div>
+            </div>
+
+            <hr />
+            <div class="grid">
+              <div class="field"><label>Group IDs (comma)</label><input id="c_group_ids" type="text" placeholder="1,2" /></div>
+              <div class="field"><label>Lecturer IDs (comma)</label><input id="c_lec_ids" type="text" placeholder="1" /></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Shared Departments (comma)</label><input id="c_shared_depts" type="text" placeholder="AEN, CEE" /></div>
+              <div class="field"><label>Shared Years (comma)</label><input id="c_shared_years" type="text" placeholder="3,4,5" /></div>
+            </div>
+            <div class="row" style="margin-top:8px; gap: 8px;">
+              <button type="submit" class="btn">Create Course</button>
+              <button type="button" id="refreshMetaBtn" class="btn secondary">Refresh Lists</button>
+              <span id="courseMsg" class="small"></span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Metadata lists -->
+        <div class="panel">
+          <h4>Metadata</h4>
+          <div class="grid">
+            <div>
+              <div class="small">Rooms</div>
+              <ul id="roomsList" class="meta"></ul>
+            </div>
+            <div>
+              <div class="small">Groups</div>
+              <ul id="groupsList" class="meta"></ul>
+            </div>
+          </div>
+          <div class="grid" style="margin-top:8px;">
+            <div>
+              <div class="small">Lecturers</div>
+              <ul id="lecturersList" class="meta"></ul>
+            </div>
+            <div>
+              <div class="small">Courses</div>
+              <ul id="coursesList" class="meta"></ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manage (Delete / Update Course) -->
+        <div class="panel">
+          <h4>Manage</h4>
+          <div class="grid">
+            <div>
+              <div class="field">
+                <label>Delete entity</label>
+                <div class="row" style="gap:6px;">
+                  <select id="del_type">
+                    <option value="rooms">Room</option>
+                    <option value="groups">Group</option>
+                    <option value="lecturers">Lecturer</option>
+                    <option value="courses">Course</option>
+                  </select>
+                  <input id="del_id" type="number" placeholder="ID" style="width:100px;" />
+                  <button id="del_btn" class="btn warn" type="button">Delete</button>
+                </div>
+                <div id="del_msg" class="small"></div>
+              </div>
+            </div>
+            <div></div>
+          </div>
+
+          <hr />
+          <h5 style="margin:6px 0;">Update Course / Reassign</h5>
+          <div class="grid">
+            <div class="field"><label>Course ID</label><input id="uc_id" type="number" placeholder="Course ID" /></div>
+            <div class="field"><label>Code</label><input id="uc_code" type="text" placeholder="EEE 2019" /></div>
+          </div>
+          <div class="grid">
+            <div class="field"><label>Name</label><input id="uc_name" type="text" placeholder="Circuits" /></div>
+            <div class="field"><label>Lecture session minutes</label><input id="uc_sess_min" type="number" min="30" step="30" value="60" /></div>
+          </div>
+          <div class="grid">
+            <div class="field"><label>Lecture sessions per week</label><input id="uc_lect_sessions" type="number" min="0" step="1" value="3" /></div>
+            <div class="field"><label>Computed lecture hours/week</label><input id="uc_weekly_hours" type="number" value="3" readonly /></div>
+          </div>
+          <div style="margin-top:6px;">
+            <label><input id="uc_is_project" type="checkbox" /> Project / Capstone course (no venue assignment)</label>
+          </div>
+          <div class="grid">
+            <div class="field"><label>Lecture furniture_type</label><input id="uc_req_furn" type="text" placeholder="lecture" /></div>
+            <div class="field"><label>Lecture equipment (comma)</label><input id="uc_req_equip" type="text" placeholder="projector" /></div>
+          </div>
+
+          <div class="row" style="justify-content: space-between; margin:6px 0;">
+            <div class="row">
+              <input id="uc_has_lab" type="checkbox" />
+              <label for="uc_has_lab">Has Lab</label>
+            </div>
+          </div>
+          <div id="uc_labSection" style="display:none;">
+            <div class="grid">
+              <div class="field"><label>Labs per week</label><input id="uc_lab_count" type="number" min="0" step="1" value="1" /></div>
+              <div class="field"><label>Lab session minutes</label><input id="uc_lab_min" type="number" min="30" step="30" value="180" /></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Lab furniture_type</label><input id="uc_lab_furn" type="text" placeholder="lab" /></div>
+              <div class="field"><label>Lab equipment (comma)</label><input id="uc_lab_equip" type="text" placeholder="lab-pcs, projector" /></div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="field"><label>Group IDs (comma)</label><input id="uc_group_ids" type="text" placeholder="1,2" /></div>
+            <div class="field"><label>Lecturer IDs (comma)</label><input id="uc_lec_ids" type="text" placeholder="1" /></div>
+          </div>
+          <div class="grid">
+            <div class="field"><label>Department (optional)</label><select id="uc_course_dept_select"><option value="">-- select department --</option></select></div>
+            <div class="field"><label>Or enter dept code</label><input id="uc_department" type="text" placeholder="GEN / AEN" /></div>
+          </div>
+          <div class="grid">
+            <div class="field"><label>Shared Departments (comma)</label><input id="uc_shared_depts" type="text" placeholder="AEN, CEE" /></div>
+            <div class="field"><label>Shared Years (comma)</label><input id="uc_shared_years" type="text" placeholder="3,4,5" /></div>
+          </div>
+          <div class="row" style="margin-top:8px; gap: 8px;">
+            <button type="button" id="upd_course_btn" class="btn">Update Course</button>
+            <span id="uc_msg" class="small"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div id="exportPanel" class="panel">
+          <div class="row" style="justify-content: space-between; align-items: center;">
+            <h4 style="margin:0;">Timetable (Printable, Live)</h4>
+            <div class="row">
+              <button id="refreshExportBtn" class="btn secondary" type="button">Refresh Table</button>
+            </div>
+          </div>
+          <iframe id="exportFrame" class="export-frame"></iframe>
+        </div>
+        <div id="calendar" class="panel tight"></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.2/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+    <script>
+      const statusEl = document.getElementById('status');
+      const generateBtn = document.getElementById('generateBtn');
+
+      const exportPanel = document.getElementById('exportPanel');
+      const exportFrame = document.getElementById('exportFrame');
+      function refreshExportPane(){ if (exportFrame) { exportFrame.src = '/timetable/export/html?ts=' + Date.now(); } }
+
+      // Default availability (Mon-Fri 07:00-17:00)
+      const defaultAvail = { Mon: [["07:00","17:00"]], Tue: [["07:00","17:00"]], Wed: [["07:00","17:00"]], Thu: [["07:00","17:00"]], Fri: [["07:00","17:00"]] };
+
+      function setStatus(msg) { statusEl.textContent = msg || ''; }
+
+      // Helpers
+      function parseIds(s) { if (!s) return []; return String(s).split(',').map(x => parseInt(x.trim(), 10)).filter(x => !isNaN(x)); }
+      function parseEquip(s) { if (!s) return []; return String(s).split(',').map(x => x.trim()).filter(x => x); }
+      function parseJSONOrDefault(txt, dflt) {
+        const s = (txt || '').trim();
+        if (!s) return dflt;
+        try { return JSON.parse(s); } catch (e) { return dflt; }
+      }
+
+      // Recalc lecture hours
+      const cSessMin = document.getElementById('c_sess_min');
+      const cLectSessions = document.getElementById('c_lect_sessions');
+      const cWeeklyHours = document.getElementById('c_weekly_hours');
+      function recalcHours() { const mins = parseInt(cSessMin.value||'60',10); const sessions = parseInt(cLectSessions.value||'0',10); cWeeklyHours.value = String(Math.round((mins*sessions)/60)); }
+      cSessMin.addEventListener('input', recalcHours);
+      cLectSessions.addEventListener('input', recalcHours);
+      recalcHours();
+
+      // Lab toggle
+      const cHasLab = document.getElementById('c_has_lab');
+      const labSection = document.getElementById('labSection');
+      cHasLab.addEventListener('change', () => { labSection.style.display = cHasLab.checked ? 'block' : 'none'; });
+
+      // Forms
+      const roomMsg = document.getElementById('roomMsg');
+      document.getElementById('roomForm').addEventListener('submit', async (e) => {
+        e.preventDefault(); roomMsg.textContent='';
+        try {
+          const name = document.getElementById('r_name').value.trim();
+          const capacity = parseInt(document.getElementById('r_capacity').value||'0', 10);
+          const furniture_type = document.getElementById('r_furniture').value.trim() || null;
+          const equipment = parseEquip(document.getElementById('r_equip').value);
+          const availability = parseJSONOrDefault(document.getElementById('r_avail').value, defaultAvail);
+          const payload = { name, capacity, furniture_type, equipment: equipment.length?equipment:null, availability };
+          await axios.post('/entities/rooms', payload);
+          roomMsg.textContent = 'Room created';
+          await fetchMeta();
+        } catch (err) { roomMsg.textContent = (err.response?.data?.detail)||'Failed to create room'; }
+      });
+
+      const groupMsg = document.getElementById('groupMsg');
+      document.getElementById('groupForm').addEventListener('submit', async (e) => {
+        e.preventDefault(); groupMsg.textContent='';
+        try {
+          const name = document.getElementById('g_name').value.trim();
+          const size = parseInt(document.getElementById('g_size').value||'0',10);
+          const year = parseInt(document.getElementById('g_year').value||'0',10)||null;
+          const department = (document.getElementById('g_dept').value||'').trim() || null;
+          const lecture_group = (document.getElementById('g_lg').value||'').trim() || null;
+          const subgroup = (document.getElementById('g_sub').value||'').trim() || null;
+          // Enforce LG only for 2nd year GEN
+          const lgVal = (year===2 && (department||'').toUpperCase()==='GEN') ? lecture_group : null;
+          const payload = { name, size, year, department, lecture_group: lgVal, subgroup };
+          await axios.post('/entities/groups', payload);
+          groupMsg.textContent = 'Group created';
+          await fetchMeta();
+        } catch (err) { groupMsg.textContent = (err.response?.data?.detail)||'Failed to create group'; }
+      });
+
+    const lecturerMsg = document.getElementById('lecturerMsg');
+    document.getElementById('lecturerForm').addEventListener('submit', async (e) => {
+        e.preventDefault(); lecturerMsg.textContent='';
+        try {
+      const name = document.getElementById('l_name').value.trim();
+          const dept = (document.getElementById('lect_dept_select').value||'').trim() || null;
+      const max_daily_load = parseInt(document.getElementById('l_load').value||'0',10)||null;
+      const availability = parseJSONOrDefault(document.getElementById('l_avail').value, defaultAvail);
+      const payload = { name, department: dept, max_daily_load, availability };
+          await axios.post('/entities/lecturers', payload);
+          lecturerMsg.textContent = 'Lecturer created';
+          await fetchMeta();
+        } catch (err) { lecturerMsg.textContent = (err.response?.data?.detail)||'Failed to create lecturer'; }
+      });
+
+      const courseMsg = document.getElementById('courseMsg');
+      document.getElementById('courseForm').addEventListener('submit', async (e) => {
+        e.preventDefault(); courseMsg.textContent='';
+        try {
+          const code = document.getElementById('c_code').value.trim();
+          const name = document.getElementById('c_name').value.trim();
+          const session_minutes = parseInt(document.getElementById('c_sess_min').value||'60',10);
+          const sessions_per_week = parseInt(document.getElementById('c_lect_sessions').value||'0',10);
+          const weekly_hours = Math.round((session_minutes * sessions_per_week)/60);
+          const req_f = document.getElementById('c_req_furn').value.trim();
+          const req_e = parseEquip(document.getElementById('c_req_equip').value);
+          const has_lab = document.getElementById('c_has_lab').checked;
+          const lab_weekly_sessions = has_lab ? parseInt(document.getElementById('c_lab_count').value||'0',10) : 0;
+          const lab_session_minutes = has_lab ? parseInt(document.getElementById('c_lab_min').value||'180',10) : 180;
+          const lab_f = document.getElementById('c_lab_furn').value.trim();
+          const lab_e = parseEquip(document.getElementById('c_lab_equip').value);
+          const group_ids = parseIds(document.getElementById('c_group_ids').value);
+          const lecturer_ids = parseIds(document.getElementById('c_lec_ids').value);
+          const shared_departments = (document.getElementById('c_shared_depts').value||'').split(',').map(s=>s.trim()).filter(s=>s);
+          const shared_years = (document.getElementById('c_shared_years').value||'').split(',').map(s=>parseInt(s.trim(),10)).filter(n=>!isNaN(n));
+          const requirements = {}; if (req_f) requirements.furniture_type=req_f; if (req_e.length) requirements.equipment=req_e;
+          const lab_requirements = {}; if (lab_f) lab_requirements.furniture_type=lab_f; if (lab_e.length) lab_requirements.equipment=lab_e;
+          // determine department: prefer typed input, else selector
+          const deptTyped = (document.getElementById('c_department')?.value||'').trim();
+          const deptSel = (document.getElementById('course_dept_select')?.value||'').trim();
+          const department = deptTyped || deptSel || null;
+          const is_project = document.getElementById('c_is_project').checked;
+          const payload = { code, name, weekly_hours, session_minutes, requirements: Object.keys(requirements).length?requirements:null, is_project, has_lab, lab_weekly_sessions, lab_session_minutes, lab_requirements: has_lab && Object.keys(lab_requirements).length?lab_requirements:null, group_ids, lecturer_ids, shared_departments, shared_years, department };
+          await axios.post('/entities/courses', payload);
+          courseMsg.textContent = 'Course created';
+          await fetchMeta();
+          await renderCalendar();
+          refreshExportPane();
+        } catch (err) { courseMsg.textContent = (err.response?.data?.detail)||'Failed to create course'; }
+      });
+
+      // Metadata
+      const roomsList = document.getElementById('roomsList');
+      const groupsList = document.getElementById('groupsList');
+      const lecturersList = document.getElementById('lecturersList');
+      const coursesList = document.getElementById('coursesList');
+
+      async function fetchMeta() {
+        const [rm, gr, le, co] = await Promise.all([
+          axios.get('/entities/rooms'),
+          axios.get('/entities/groups'),
+          axios.get('/entities/lecturers'),
+          axios.get('/entities/courses'),
+        ]);
+        roomsList.innerHTML = rm.data.map(r => `<li>${r.id}: ${r.name} (cap ${r.capacity})</li>`).join('');
+        groupsList.innerHTML = gr.data.map(g => `<li>${g.id}: ${g.name}${g.year?` (Y${g.year}`:''}${g.department?`${g.year?", ":" ("}${g.department}`:''}${g.lecture_group?`, ${g.lecture_group}`:''}${(g.year||g.department||g.lecture_group)?')':''}</li>`).join('');
+        lecturersList.innerHTML = le.data.map(l => `<li>${l.id}: ${l.name}</li>`).join('');
+        coursesList.innerHTML = co.data.map(c => `<li>${c.id}: ${c.code} (${c.name})</li>`).join('');
+        // Populate department selectors from unique groups' departments
+        const depts = Array.from(new Set(gr.data.map(g => (g.department||'').toUpperCase()).filter(d => d)));
+        const lectDeptSelect = document.getElementById('lect_dept_select');
+        const courseDeptSelect = document.getElementById('course_dept_select');
+        const ucCourseDeptSelect = document.getElementById('uc_course_dept_select');
+        if (lectDeptSelect) {
+          lectDeptSelect.innerHTML = '<option value="">-- select department --</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+        if (courseDeptSelect) {
+          courseDeptSelect.innerHTML = '<option value="">-- select department --</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+        if (ucCourseDeptSelect) {
+          ucCourseDeptSelect.innerHTML = '<option value="">-- select department --</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+      }
+
+      document.getElementById('refreshMetaBtn').addEventListener('click', async () => { await fetchMeta(); });
+
+      // Calendar
+      async function fetchEvents() {
+        const res = await axios.get('/timetable/events');
+        return res.data.map(ev => {
+          const start = toDate(ev.day, ev.start);
+          const end = toDate(ev.day, ev.end);
+          const code = `C${ev.course_id}`;
+          const label = `${code} G${ev.group_id} R${ev.room_id}`;
+          return { id: String(ev.id), title: label, start, end, extendedProps: ev };
+        });
+      }
+
+      function toDate(dayStr, timeStr) {
+        const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const now = new Date();
+        const targetDow = days.indexOf(dayStr);
+        let d = new Date(now);
+        d.setHours(0,0,0,0);
+        const currentDow = d.getDay();
+        const mondayOffset = (currentDow + 6) % 7; // 0 for Mon
+        d.setDate(d.getDate() - mondayOffset);
+        const offset = (targetDow + 6) % 7;
+        d.setDate(d.getDate() + offset);
+        const [hh, mm, ss] = String(timeStr).split(':');
+        d.setHours(parseInt(hh||'0'), parseInt(mm||'0'), parseInt(ss||'0'));
+        return d;
+      }
+
+      async function renderCalendar() {
+        const events = await fetchEvents();
+        const calendarEl = document.getElementById('calendar');
+        calendarEl.innerHTML = '';
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+          initialView: 'timeGridWeek',
+          slotMinTime: '07:00:00',
+          slotMaxTime: '20:00:00',
+          nowIndicator: true,
+          editable: true,
+          eventOverlap: false,
+          headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,dayGridMonth' },
+          events,
+          eventDrop: async (info) => {
+            const ev = info.event;
+            const start = ev.start; const end = ev.end;
+            const dayStr = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][start.getDay()];
+            try {
+              const payload = { day: dayStr, start: start.toTimeString().slice(0,8), end: end.toTimeString().slice(0,8), room_id: ev.extendedProps.room_id };
+              setStatus('Saving change...');
+              await axios.post(`/timetable/events/${ev.id}/move`, payload);
+              setStatus('Saved.');
+              refreshExportPane();
+            } catch (e) { setStatus(e.response?.data?.detail || 'Error saving.'); info.revert(); }
+          }
+        });
+        calendar.render();
+      }
+
+      // Toolbar actions
+      generateBtn.addEventListener('click', async () => {
+        try {
+          setStatus('Generating...');
+          await axios.post('/timetable/generate', { version_name: 'auto' });
+          await renderCalendar();
+          refreshExportPane();
+          setStatus('');
+        } catch (e) { setStatus(e.response?.data?.detail || 'Generation failed'); }
+      });
+
+      document.getElementById('exportHtmlBtn').addEventListener('click', () => {
+        const visible = exportPanel && exportPanel.style.display !== 'none';
+        if (exportPanel) {
+          exportPanel.style.display = visible ? 'none' : 'block';
+          if (!visible) { refreshExportPane(); }
+        } else {
+          window.open('/timetable/export/html', '_blank');
+        }
+      });
+      const refreshBtn = document.getElementById('refreshExportBtn');
+      if (refreshBtn) refreshBtn.addEventListener('click', refreshExportPane);
+
+      // Manage: Delete entity
+      document.getElementById('del_btn').addEventListener('click', async () => {
+        const type = (document.getElementById('del_type').value||'').trim();
+        const id = parseInt(document.getElementById('del_id').value||'0',10);
+        const msg = document.getElementById('del_msg');
+        msg.textContent = '';
+        if (!type || !id) { msg.textContent = 'Select type and ID'; return; }
+        try {
+          await axios.delete(`/entities/${type}/${id}`);
+          msg.textContent = 'Deleted';
+          await fetchMeta();
+          await renderCalendar();
+        } catch (e) {
+          msg.textContent = e.response?.data?.detail || 'Delete failed';
+        }
+      });
+
+      // Manage: Update Course / Reassign
+      const uc_labSection = document.getElementById('uc_labSection');
+      const uc_has_lab = document.getElementById('uc_has_lab');
+      const uc_sess_min = document.getElementById('uc_sess_min');
+      const uc_lect_sessions = document.getElementById('uc_lect_sessions');
+      const uc_weekly_hours = document.getElementById('uc_weekly_hours');
+      function uc_recalcHours(){ const mins=parseInt(uc_sess_min.value||'60',10); const sess=parseInt(uc_lect_sessions.value||'0',10); uc_weekly_hours.value=String(Math.round((mins*sess)/60)); }
+      uc_sess_min.addEventListener('input', uc_recalcHours); uc_lect_sessions.addEventListener('input', uc_recalcHours); uc_recalcHours();
+      uc_has_lab.addEventListener('change', () => { uc_labSection.style.display = uc_has_lab.checked ? 'block' : 'none'; });
+
+      document.getElementById('upd_course_btn').addEventListener('click', async () => {
+        const msg = document.getElementById('uc_msg'); msg.textContent='';
+        try {
+          const id = parseInt(document.getElementById('uc_id').value||'0',10);
+          if (!id) { msg.textContent='Course ID required'; return; }
+          const code = document.getElementById('uc_code').value.trim();
+          const name = document.getElementById('uc_name').value.trim();
+          const session_minutes = parseInt(document.getElementById('uc_sess_min').value||'60',10);
+          const sessions_per_week = parseInt(document.getElementById('uc_lect_sessions').value||'0',10);
+          const weekly_hours = Math.round((session_minutes * sessions_per_week)/60);
+          const req_f = document.getElementById('uc_req_furn').value.trim();
+          const req_e = parseEquip(document.getElementById('uc_req_equip').value);
+          const has_lab = document.getElementById('uc_has_lab').checked;
+          const lab_weekly_sessions = has_lab ? parseInt(document.getElementById('uc_lab_count').value||'0',10) : 0;
+          const lab_session_minutes = has_lab ? parseInt(document.getElementById('uc_lab_min').value||'180',10) : 180;
+          const lab_f = document.getElementById('uc_lab_furn').value.trim();
+          const lab_e = parseEquip(document.getElementById('uc_lab_equip').value);
+          const group_ids = parseIds(document.getElementById('uc_group_ids').value);
+          const lecturer_ids = parseIds(document.getElementById('uc_lec_ids').value);
+          const shared_departments = (document.getElementById('uc_shared_depts').value||'').split(',').map(s=>s.trim()).filter(s=>s);
+          const shared_years = (document.getElementById('uc_shared_years').value||'').split(',').map(s=>parseInt(s.trim(),10)).filter(n=>!isNaN(n));
+          const requirements = {}; if (req_f) requirements.furniture_type=req_f; if (req_e.length) requirements.equipment=req_e;
+          const lab_requirements = {}; if (lab_f) lab_requirements.furniture_type=lab_f; if (lab_e.length) lab_requirements.equipment=lab_e;
+          const deptTyped = (document.getElementById('uc_department')?.value||'').trim();
+          const deptSel = (document.getElementById('uc_course_dept_select')?.value||'').trim();
+          const department = deptTyped || deptSel || null;
+          const is_project = document.getElementById('uc_is_project').checked;
+          const payload = { code, name, weekly_hours, session_minutes, requirements: Object.keys(requirements).length?requirements:null, is_project, has_lab, lab_weekly_sessions, lab_session_minutes, lab_requirements: has_lab && Object.keys(lab_requirements).length?lab_requirements:null, group_ids, lecturer_ids, shared_departments, shared_years, department };
+          await axios.put(`/entities/courses/${id}`, payload);
+          msg.textContent = 'Course updated';
+          await fetchMeta();
+          await renderCalendar();
+        } catch (e) {
+          msg.textContent = e.response?.data?.detail || 'Update failed';
+        }
+      });
+
+      // Init
+      (async function init() { await fetchMeta(); await renderCalendar(); })();
+    </script>
+  </body>
+</html>

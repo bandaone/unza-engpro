@@ -1,0 +1,161 @@
+ba<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Coordinator Portal</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
+    header { padding: 12px 16px; border-bottom: 1px solid #eee; display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+    .container { padding: 16px; max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .panel { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; background: #fff; }
+    h3 { margin: 0; }
+    h4 { margin: 0 0 8px 0; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    input, select { padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+    .btn { padding: 8px 10px; background: #1976d2; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    .btn.secondary { background: #555; }
+    .small { color: #555; font-size: 12px; }
+    .error { color: #b91c1c; font-size: 12px; }
+    .list { display: grid; gap: 8px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+    .day { font-weight: 700; margin-bottom: 6px; }
+    nav a { margin-right: 10px; text-decoration: none; color: #1976d2; }
+    .muted { color: #6b7280; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h3>Timetable Portal — Coordinator</h3>
+      <nav>
+        <a href="/portals/index.html">Portals</a>
+        <a href="/">Admin</a>
+      </nav>
+    </div>
+    <div id="userBox" class="small"></div>
+  </header>
+
+  <div class="panel" style="max-width: 900px; margin: 14px auto;">
+    <h4>Login</h4>
+    <div class="row" style="margin-top:8px;">
+      <input id="username" placeholder="Username" />
+      <input id="password" type="password" placeholder="Password" />
+      <button id="loginBtn" class="btn">Login</button>
+    </div>
+    <div id="loginMsg" class="small"></div>
+  </div>
+
+  <div id="portalView" style="display:none;">
+    <div class="container">
+      <div class="panel">
+        <div class="row" style="justify-content: space-between; align-items: center;">
+          <h4 style="margin:0;">Issues</h4>
+          <div class="toolbar">
+            <select id="depFilter"><option value="">All Depts</option><option>AEN</option><option>CEE</option><option>EEE</option><option>GEE</option><option>MEC</option></select>
+            <select id="statusFilter"><option value="">All Status</option><option>open</option><option>assigned</option><option>resolved</option></select>
+            <select id="sevFilter"><option value="">All Severity</option><option>info</option><option>warning</option><option>error</option></select>
+            <button id="refreshIssues" class="btn secondary">Refresh</button>
+          </div>
+        </div>
+        <div id="issuesInfo" class="small" style="margin:6px 0 10px 0;">Fetching…</div>
+        <div id="issuesList" class="list"></div>
+      </div>
+
+      <div class="panel">
+        <h4>Assign / Update Issue</h4>
+        <div class="row" style="margin-top:6px;">
+          <input id="issueId" placeholder="Issue ID" style="width:120px;" />
+          <input id="assignUserId" placeholder="Assign to User ID" style="width:160px;" />
+          <button id="assignBtn" class="btn">Assign</button>
+        </div>
+        <div class="row" style="margin-top:6px;">
+          <input id="statusIssueId" placeholder="Issue ID" style="width:120px;" />
+          <select id="statusSelect"><option>open</option><option>assigned</option><option>resolved</option></select>
+          <button id="statusBtn" class="btn secondary">Update Status</button>
+        </div>
+        <div id="actMsg" class="small"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.7.2/dist/axios.min.js"></script>
+  <script>
+    function setAuth(u,p){ axios.defaults.auth = { username: u, password: p }; }
+
+    async function login(){
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value;
+      const msg = document.getElementById('loginMsg'); msg.textContent = '';
+      if (!u || !p){ msg.textContent = 'Username and password required'; return; }
+      try{
+        setAuth(u,p);
+        const me = (await axios.get('/auth/me')).data;
+        if (me.role !== 'coordinator'){ msg.textContent = 'Coordinator role required'; return; }
+        document.getElementById('userBox').textContent = `${me.username} • ${me.role.toUpperCase()}`;
+        document.getElementById('portalView').style.display = 'block';
+        await refreshIssues();
+      } catch (e){ msg.textContent = e.response?.data?.detail || 'Login failed'; }
+    }
+
+    function issueHtml(it){
+      const when = (it.created_at || '').toString().replace('T',' ').slice(0,19);
+      return `<div class="card">`+
+             `<div><b>[${it.severity}]</b> ${it.issue_type} — <span class="small">${it.status}</span></div>`+
+             `<div class="small">${it.message}</div>`+
+             `<div class="small muted">Dept: ${it.department||'-'} • Course:${it.course_id||'-'} • Group:${it.group_id||'-'} • Lecturer:${it.lecturer_id||'-'} • Room:${it.room_id||'-'}</div>`+
+             `<div class="small muted">${when}</div>`+
+             `</div>`;
+    }
+
+    async function refreshIssues(){
+      const info = document.getElementById('issuesInfo');
+      const list = document.getElementById('issuesList');
+      info.textContent = 'Loading…'; list.innerHTML = '';
+      const dep = document.getElementById('depFilter').value;
+      const status = document.getElementById('statusFilter').value;
+      const sev = document.getElementById('sevFilter').value;
+      const params = new URLSearchParams();
+      if (dep) params.set('department', dep);
+      if (status) params.set('status', status);
+      if (sev) params.set('severity', sev);
+      try{
+        const res = await axios.get('/issues' + (params.toString()?`?${params.toString()}`:''));
+        const items = res.data || [];
+        info.textContent = `${items.length} issues`;
+        list.innerHTML = items.map(issueHtml).join('');
+      } catch (e){ info.textContent = e.response?.data?.detail || 'Failed to load issues'; }
+    }
+
+    async function assign(){
+      const msg = document.getElementById('actMsg'); msg.textContent = '';
+      const id = parseInt(document.getElementById('issueId').value||'0',10);
+      const uid = parseInt(document.getElementById('assignUserId').value||'0',10);
+      if (!id || !uid){ msg.textContent = 'Issue ID and User ID required'; return; }
+      try{
+        await axios.post(`/issues/${id}/assign`, { user_id: uid });
+        msg.textContent = 'Assigned';
+        await refreshIssues();
+      } catch (e){ msg.textContent = e.response?.data?.detail || 'Assign failed'; }
+    }
+
+    async function updateStatus(){
+      const msg = document.getElementById('actMsg'); msg.textContent = '';
+      const id = parseInt(document.getElementById('statusIssueId').value||'0',10);
+      const st = document.getElementById('statusSelect').value;
+      if (!id){ msg.textContent = 'Issue ID required'; return; }
+      try{
+        await axios.post(`/issues/${id}/status`, { status: st });
+        msg.textContent = 'Status updated';
+        await refreshIssues();
+      } catch (e){ msg.textContent = e.response?.data?.detail || 'Status update failed'; }
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.getElementById('refreshIssues').addEventListener('click', refreshIssues);
+    document.getElementById('assignBtn').addEventListener('click', assign);
+    document.getElementById('statusBtn').addEventListener('click', updateStatus);
+  </script>
+</body>
+</html>
