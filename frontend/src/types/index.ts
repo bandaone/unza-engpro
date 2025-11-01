@@ -132,6 +132,9 @@ export interface TimetableEvent {
   group: Group;
   lecturer: Lecturer;
   day: string;  // Changed from number to string to match component expectation
+  // Back-end uses snake_case; provide both forms to satisfy different callers
+  version_id: number;  // Added to match backend schema
+  versionId: number;   // CamelCase alias for frontend convenience
 }
 
 export interface TimetableStatus {

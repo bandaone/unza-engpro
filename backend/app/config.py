@@ -21,6 +21,13 @@ class Settings:
         self.lunch_start = os.getenv("LUNCH_START", "13:00")
         self.lunch_end = os.getenv("LUNCH_END", "14:00")
 
+        # Email settings
+        self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        self.smtp_username = os.getenv("SMTP_USERNAME", "")
+        self.smtp_password = os.getenv("SMTP_PASSWORD", "")
+        self.smtp_from_email = os.getenv("SMTP_FROM_EMAIL", "noreply@timetable.com")
+
     @property
     def database_url(self) -> str:
         return f"postgresql+psycopg2://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"

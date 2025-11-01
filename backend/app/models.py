@@ -72,6 +72,7 @@ class Lecturer(Base):
     __tablename__ = "lecturers"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
+    email = Column(String, unique=True, nullable=True)  # Optional but unique if provided
     department = Column(String, nullable=True)
     max_daily_load = Column(Integer, nullable=True)  # in minutes
     availability = Column(JSON, nullable=True)

@@ -91,11 +91,14 @@ class StudentGroup(StudentGroupBase):
 # -----------------
 # Lecturers
 # -----------------
+from pydantic import EmailStr
+
 class LecturerBase(BaseModel):
     name: str
     department: Optional[str] = None
     max_daily_load: Optional[int] = None
     availability: Optional[Dict[str, List[List[str]]]] = None
+    email: Optional[EmailStr] = None  # Optional email field with validation
 
 class LecturerCreate(LecturerBase):
     pass
@@ -103,6 +106,12 @@ class LecturerCreate(LecturerBase):
 class Lecturer(LecturerBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+# -----------------
+# Lecturer Email Update
+# -----------------
+class UpdateLecturerEmail(BaseModel):
+    email: EmailStr
 
 # -----------------
 # Departments

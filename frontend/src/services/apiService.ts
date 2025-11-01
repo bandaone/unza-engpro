@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { Course, Group, Lecturer, Room, Department, ApiResponse, DepartmentStats, GlobalStats, Issue, TimetableStatus, TimetableEvent } from '../types';
+import { convertSnakeToCamel } from '../utils/caseConversion';
 
 export const api = axios.create({
   baseURL: '', // The /api prefix is already added by the backend
@@ -15,12 +16,14 @@ async function unwrap<T>(p: Promise<import('axios').AxiosResponse<ApiResponse<T>
 
   // If the response has a data property that's an ApiResponse
   if ('data' in res.data) {
-    return (res.data as ApiResponse<T>).data;
+    const responseData = res.data as ApiResponse<T>;
+    const transformedData = convertSnakeToCamel(responseData.data);
+    return transformedData;
   }
 
   // Handle array responses
   if (Array.isArray(res.data)) {
-    return res.data as T;
+    return convertSnakeToCamel(res.data) as T;
   }
 
   // Handle null/undefined for array types
@@ -76,5 +79,6 @@ export const apiService = {
     getProgress: async () => await unwrap(api.get<ApiResponse<{ progress: number }>>('/timetable/progress')),
     getStatus: async () => await unwrap(api.get<ApiResponse<TimetableStatus>>('/timetable/status')),
     getValidation: async () => await unwrap(api.get<ApiResponse<Issue[]>>('/timetable/validation')),
+    publish: async (versionId: number) => await unwrap(api.post<ApiResponse<{ message: string }>>(`/timetable/publish/${versionId}`)),
   },
 };

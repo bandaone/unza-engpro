@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from datetime import time
+from fastapi.responses import JSONResponse
 
 from ..database import get_db
 from .. import schemas, models, crud
 from ..solver import generate_timetable
 from ..utils import check_conflicts
+from ..services.pdf import pdf_service
+from ..services.email import email_service
 
 router = APIRouter(prefix="/timetable", tags=["timetable"])
 
@@ -47,6 +50,88 @@ def add_event(data: schemas.TimetableEventCreate, db: Session = Depends(get_db))
     ev.group = db.query(models.StudentGroup).get(ev.group_id)
     ev.lecturer = db.query(models.Lecturer).get(ev.lecturer_id)
     ev.course = db.query(models.Course).get(ev.course_id)
+
+@router.post("/publish/{version_id}")
+async def publish_timetable(
+    version_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Publish the timetable by generating and emailing individual schedules to lecturers
+    """
+    try:
+        # Get all events for this version
+        version = db.query(models.Version).filter(models.Version.id == version_id).first()
+        if not version:
+            raise HTTPException(status_code=404, detail="Version not found")
+
+        # Get all lecturers with events in this version
+        lecturers = db.query(models.Lecturer).join(
+            models.TimetableEvent,
+            models.TimetableEvent.lecturer_id == models.Lecturer.id
+        ).filter(
+            models.TimetableEvent.version_id == version_id
+        ).distinct().all()
+
+        sent_count = 0
+        skipped_count = 0
+        error_messages = []
+
+        for lecturer in lecturers:
+            try:
+                if not lecturer.email:
+                    error_messages.append(f"Lecturer {lecturer.name} (ID: {lecturer.id}) has no email address yet. Please have HOD set email address before publishing.")
+                    skipped_count += 1
+                    continue
+
+                # Get events for this lecturer
+                events = db.query(models.TimetableEvent).filter(
+                    models.TimetableEvent.version_id == version_id,
+                    models.TimetableEvent.lecturer_id == lecturer.id
+                ).all()
+
+                if not events:
+                    error_messages.append(f"No events found for lecturer {lecturer.name} (ID: {lecturer.id})")
+                    skipped_count += 1
+                    continue
+
+                # Generate PDF
+                pdf_bytes = pdf_service.generate_timetable_pdf(events, lecturer.name)
+
+                # Send email in background
+                background_tasks.add_task(
+                    email_service.send_timetable,
+                    recipient_email=lecturer.email,
+                    lecturer_name=lecturer.name,
+                    timetable_pdf=pdf_bytes
+                )
+                sent_count += 1
+
+            except Exception as e:
+                error_msg = f"Error processing lecturer {lecturer.name} (ID: {lecturer.id}): {str(e)}"
+                error_messages.append(error_msg)
+                skipped_count += 1
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": f"Timetable publishing in progress",
+                "details": {
+                    "total_lecturers": len(lecturers),
+                    "sent": sent_count,
+                    "skipped": skipped_count,
+                    "errors": error_messages
+                },
+                "version": version_id
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to publish timetable: {str(e)}"
+        )
 
     errors = check_conflicts(db, ev)
     if errors:

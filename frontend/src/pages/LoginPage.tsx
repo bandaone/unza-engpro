@@ -44,9 +44,14 @@ export const LoginPage: React.FC = () => {
         minHeight: '100vh',
         backgroundColor: '#f0f2f5',
         padding: '20px',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
       }}
     >
-      <Container component="main" maxWidth="sm" sx={{ m: 0 }}>
+      <Container component="main" maxWidth="sm" sx={{ m: 'auto', display: 'flex', justifyContent: 'center' }}>
         <Paper 
           elevation={6} 
           sx={{ 
@@ -67,7 +72,7 @@ export const LoginPage: React.FC = () => {
             }}
           >
             <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
-              Timetable System Login
+              Timetable System
             </Typography>
             
             {error && (
