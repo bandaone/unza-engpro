@@ -1,5 +1,73 @@
 const userService = require('../services/user.service');
 
+const ALLOWED_ROLES = ['student', 'supervisor', 'coordinator'];
+
+const validateCreateUserPayload = (payload) => {
+  const errors = [];
+  const { email, fullName, role } = payload;
+
+  if (!email) {
+    errors.push('Email is required');
+  }
+
+  if (!fullName) {
+    errors.push('Full name is required');
+  }
+
+  if (!role) {
+    errors.push('Role is required');
+  } else if (!ALLOWED_ROLES.includes(role)) {
+    errors.push(`Role must be one of: ${ALLOWED_ROLES.join(', ')}`);
+  }
+
+  if (role === 'student') {
+    if (!payload.registrationNumber) {
+      errors.push('Registration number is required for student accounts');
+    }
+    if (!payload.department) {
+      errors.push('Department is required for student accounts');
+    }
+  }
+
+  if (role === 'supervisor') {
+    if (!payload.staffId) {
+      errors.push('Staff ID is required for supervisor accounts');
+    }
+    if (!payload.department) {
+      errors.push('Department is required for supervisor accounts');
+    }
+  }
+
+  return errors;
+};
+
+const createUser = async (req, res) => {
+  try {
+    const validationErrors = validateCreateUserPayload(req.body);
+
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        message: validationErrors[0],
+        errors: validationErrors,
+      });
+    }
+
+    const { user, tempPassword } = await userService.createUser(req.body);
+
+    return res.status(201).json({
+      message: 'User created successfully',
+      user,
+      temporaryPassword: tempPassword,
+    });
+  } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ message: 'A user with this email already exists' });
+    }
+
+    return res.status(500).json({ message: 'Error creating user', error: error.message });
+  }
+};
+
 const getUsers = async (req, res) => {
   try {
     const users = await userService.getUsers();
@@ -78,6 +146,7 @@ const updateUserProfile = async (req, res) => {
 };
 
 module.exports = {
+  createUser,
   getUsers,
   getUserById,
   updateUser,

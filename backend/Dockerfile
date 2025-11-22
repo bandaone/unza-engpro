@@ -4,13 +4,19 @@
 FROM node:18-alpine
 
 # Set working directory
-WORKDIR /app
+WORKDIR /usr/src/app
 
-# Copy only dependency files for caching
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install system dependencies (curl for healthchecks)
+RUN apk add --no-cache curl
+
+# Install app dependencies
+RUN npm ci --only=production
+
+# Install nodemon globally
+RUN npm install -g nodemon
 
 # Copy Prisma schema and generate client
 COPY prisma ./prisma/
@@ -23,7 +29,7 @@ COPY . .
 RUN chmod +x ./docker-entrypoint.sh ./wait-for-it.sh
 
 # Expose backend port
-EXPOSE 5000
+EXPOSE 3000
 
 # Use entrypoint to wait for DB before starting
 ENTRYPOINT ["/bin/sh", "./docker-entrypoint.sh"]

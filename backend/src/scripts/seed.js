@@ -1,51 +1,60 @@
 const { prisma } = require('../config/prisma.config');
 const { generateInitialPassword } = require('../utils/passwordUtils');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
-async function seed() {
+const seedCoordinator = async () => {
+  const email = process.env.COORDINATOR_EMAIL || 'unzaengpro@gmail.com';
+  const fullName = process.env.COORDINATOR_NAME || 'System Coordinator';
+  const providedPassword = process.env.COORDINATOR_PASSWORD;
+  const useProvidedPassword = Boolean(providedPassword && providedPassword.trim().length > 0);
+  const plainPassword = useProvidedPassword ? providedPassword.trim() : generateInitialPassword();
+
   try {
-    // Create coordinator
-    const coordinatorPassword = generateInitialPassword();
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
+
     const coordinator = await prisma.user.create({
       data: {
-        email: 'coordinator@unza.zm',
-        password: await bcrypt.hash(coordinatorPassword, 10),
-        full_name: 'System Coordinator',
-        role: 'COORDINATOR'
-      }
+        email,
+        password_hash: passwordHash,
+        full_name: fullName,
+        role: 'coordinator',
+      },
     });
-    console.log('Coordinator created:', { email: 'coordinator@unza.zm', password: coordinatorPassword });
 
-    // Create supervisor
-    const supervisorPassword = generateInitialPassword();
-    const supervisor = await prisma.user.create({
-      data: {
-        email: 'supervisor@unza.zm',
-        password: await bcrypt.hash(supervisorPassword, 10),
-        full_name: 'Test Supervisor',
-        role: 'SUPERVISOR'
-      }
-    });
-    console.log('Supervisor created:', { email: 'supervisor@unza.zm', password: supervisorPassword });
+    console.log('Coordinator account created:');
+    console.log('============================');
+    console.log('Email:', email);
 
-    // Create student
-    const studentPassword = generateInitialPassword();
-    const student = await prisma.user.create({
-      data: {
-        email: 'student@unza.zm',
-        password: await bcrypt.hash(studentPassword, 10),
-        full_name: 'Test Student',
-        role: 'STUDENT'
-      }
-    });
-    console.log('Student created:', { email: 'student@unza.zm', password: studentPassword });
+    if (useProvidedPassword) {
+      console.log('Password: (from COORDINATOR_PASSWORD environment variable)');
+    } else {
+      console.log('Password:', plainPassword);
+    }
 
+    console.log('============================');
+    console.log('Please store these credentials securely.');
+
+    return { coordinator, password: plainPassword, passwordFromEnv: useProvidedPassword };
   } catch (error) {
-    console.error('Error seeding data:', error);
-    process.exit(1);
-  } finally {
-    await prisma.$disconnect();
+    if (error.code === 'P2002') {
+      console.log('Coordinator already exists. Skipping seed.');
+      return { skipped: true };
+    }
+
+    console.error('Error seeding coordinator:', error);
+    throw error;
   }
+};
+
+if (require.main === module) {
+  seedCoordinator()
+    .then(() => prisma.$disconnect())
+    .then(() => process.exit(0))
+    .catch(async (error) => {
+      console.error('Failed to seed coordinator:', error);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
 }
 
-seed();
+module.exports = { seedCoordinator };

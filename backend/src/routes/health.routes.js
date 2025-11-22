@@ -4,7 +4,16 @@ const { prisma } = require('../config/prisma.config');
 
 const router = Router();
 
-router.get('/health', async (req, res) => {
+// Simple health check for container health check
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Detailed health check for application monitoring
+router.get('/health/detailed', async (req, res) => {
   try {
     // Check database connection
     await prisma.$queryRaw`SELECT 1`;

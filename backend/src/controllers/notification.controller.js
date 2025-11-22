@@ -159,9 +159,9 @@ const notifyUser = async (req, res) => {
 };
 
 module.exports = {
-  getNotifications,
-  createNotification,
+  getNotifications: exports.getNotifications,
+  createNotification: exports.createNotification,
   markAsRead,
   deleteExpired,
-  notifyUser,
+  notifyUser
 };

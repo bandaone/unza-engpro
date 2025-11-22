@@ -21,7 +21,7 @@ const createUser = async (userData) => {
   const passwordHash = await bcrypt.hash(tempPassword, 10);
 
   // Create user with transaction to ensure both user and role-specific data are created
-  const user = await prisma.$transaction(async (tx) => {
+  const createdUser = await prisma.$transaction(async (tx) => {
     // 1. Create base user
     const newUser = await tx.user.create({
       data: {
@@ -64,7 +64,10 @@ const createUser = async (userData) => {
     return newUser;
   });
 
-  return user;
+  return {
+    user: createdUser,
+    tempPassword,
+  };
 };
 
 const getUsers = async () => {

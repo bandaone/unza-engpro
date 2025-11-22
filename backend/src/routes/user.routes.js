@@ -3,8 +3,18 @@ const router = express.Router();
 const userController = require('../controllers/user.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 
-// All user management routes are protected and restricted to coordinators
-router.use(protect, authorize('coordinator'));
+// Require authentication for all user-oriented routes
+router.use(protect);
+
+// Self-service profile routes (accessible to any authenticated user)
+router.get('/me/profile', userController.getUserProfile);
+router.put('/me/profile', userController.updateUserProfile);
+
+// Coordinator-only management routes
+router.use(authorize('coordinator'));
+
+// POST /api/users
+router.post('/', userController.createUser);
 
 // GET /api/users
 router.get('/', userController.getUsers);
@@ -17,10 +27,5 @@ router.put('/:id', userController.updateUser);
 
 // DELETE /api/users/:id
 router.delete('/:id', userController.deleteUser);
-
-// The following routes are for a user's own profile
-// They are handled separately and are not restricted to coordinators
-router.get('/me/profile', protect, userController.getUserProfile);
-router.put('/me/profile', protect, userController.updateUserProfile);
 
 module.exports = router;

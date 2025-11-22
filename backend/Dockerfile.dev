@@ -2,6 +2,9 @@ FROM node:18-alpine
 
 WORKDIR /usr/src/app
 
+# Install curl for healthchecks
+RUN apk add --no-cache curl
+
 COPY package*.json ./
 
 # Copy the Prisma schema to the container
@@ -10,9 +13,13 @@ COPY prisma ./prisma/
 # Install dependencies and run prisma generate (thanks to postinstall script)
 RUN npm install
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh ./
+RUN chmod +x ./docker-entrypoint.sh
+
 # We don't copy the rest of the code because we will mount it as a volume
 # COPY . .
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+ENTRYPOINT ["/bin/sh", "./docker-entrypoint.sh"]

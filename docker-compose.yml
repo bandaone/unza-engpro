@@ -23,11 +23,15 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: unza-engpro-backend
     restart: unless-stopped
+    command: dev
     env_file:
       - ./.env
+    environment:
+      - NODE_ENV=development
+      - NODE_OPTIONS="--max-old-space-size=512"
     depends_on:
       db:
         condition: service_healthy
@@ -35,11 +39,18 @@ services:
       - "3000:3000"
     networks:
       - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   frontend-prod:
     build:

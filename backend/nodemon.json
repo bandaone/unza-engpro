@@ -1,0 +1,18 @@
+{
+  "verbose": true,
+  "ignore": [
+    "node_modules/**/node_modules",
+    "prisma/migrations",
+    "*.test.js",
+    "*.spec.js",
+    "logs/*",
+    "dist"
+  ],
+  "events": {
+    "restart": "echo \"App restarted due to changes\""
+  },
+  "watch": [
+    "src/"
+  ],
+  "ext": "js,json,prisma"
+}
