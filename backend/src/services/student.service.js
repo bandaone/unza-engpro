@@ -164,7 +164,7 @@ const importStudentsFromCsv = async (fileBuffer) => {
 
 const deleteStudent = async (id) => {
   return await prisma.$transaction(async (tx) => {
-    // Get the student first to find the user_id
+    // Get the student first
     const student = await tx.student.findUnique({
       where: { id }
     });
@@ -178,9 +178,9 @@ const deleteStudent = async (id) => {
       where: { id }
     });
 
-    // Delete the associated user record
+    // Delete the associated user record (student.id IS the user.id)
     await tx.user.delete({
-      where: { id: student.user_id }
+      where: { id }
     });
 
     return { message: 'Student deleted successfully' };
