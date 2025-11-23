@@ -5,6 +5,70 @@ const bcrypt = require('bcryptjs');
 
 // This file had syntax errors that are now corrected.
 
+const getAllAllocations = async () => {
+  return prisma.allocation.findMany({
+    include: {
+      student: {
+        include: { user: true }
+      },
+      project: true,
+      supervisor: {
+        include: { user: true }
+      },
+    }
+  });
+};
+
+const createAllocation = async (data) => {
+  const { studentId, projectId, supervisorId } = data;
+
+  // Validate student exists
+  const student = await prisma.student.findUnique({
+    where: { id: studentId }
+  });
+  if (!student) {
+    throw new Error('Student not found');
+  }
+
+  // Validate project exists and is available
+  const project = await prisma.project.findUnique({
+    where: { id: projectId }
+  });
+  if (!project) {
+    throw new Error('Project not found');
+  }
+
+  // Validate supervisor exists
+  const supervisor = await prisma.supervisor.findUnique({
+    where: { id: supervisorId }
+  });
+  if (!supervisor) {
+    throw new Error('Supervisor not found');
+  }
+
+  // Check if student is already allocated to a project
+  const existingAllocation = await prisma.allocation.findFirst({
+    where: { student_id: studentId }
+  });
+  if (existingAllocation) {
+    throw new Error('Student already allocated to a project');
+  }
+
+  return prisma.allocation.create({
+    data: {
+      student_id: studentId,
+      project_id: projectId,
+      supervisor_id: supervisorId,
+      status: 'active',
+    },
+    include: {
+      student: { include: { user: true } },
+      project: true,
+      supervisor: { include: { user: true } },
+    }
+  });
+};
+
 const getMyPreferences = async (studentId) => {
   return prisma.studentPreference.findMany({
     where: { student_id: studentId },
@@ -187,6 +251,8 @@ const getAllocationResults = async () => {
 };
 
 module.exports = {
+  getAllAllocations,
+  createAllocation,
   runAllocation,
   getAllocationStatus,
   getAllocationResults,

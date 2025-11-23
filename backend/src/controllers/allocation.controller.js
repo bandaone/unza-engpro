@@ -2,6 +2,38 @@ const allocationService = require('../services/allocation.service');
 const { ApiError } = require('../utils/errors');
 const logger = require('../utils/logger');
 
+const getAllocations = async (req, res, next) => {
+  try {
+    const allocations = await allocationService.getAllAllocations();
+    res.status(200).json(allocations);
+  } catch (error) {
+    next(new ApiError('Error retrieving allocations', 500));
+  }
+};
+
+const createAllocation = async (req, res, next) => {
+  try {
+    const { studentId, projectId, supervisorId } = req.body;
+
+    if (!studentId || !projectId || !supervisorId) {
+      return next(new ApiError('Missing required fields: studentId, projectId, supervisorId', 400));
+    }
+
+    const allocation = await allocationService.createAllocation({
+      studentId,
+      projectId,
+      supervisorId,
+    });
+
+    res.status(201).json({ message: 'Allocation created successfully', allocation });
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('already allocated')) {
+      return next(new ApiError(error.message, 400));
+    }
+    next(new ApiError('Error creating allocation', 500));
+  }
+};
+
 const runAllocation = async (req, res, next) => {
   try {
     logger.info('Starting allocation process');
@@ -131,6 +163,8 @@ const deleteAllocation = async (req, res, next) => {
 };
 
 module.exports = {
+  getAllocations,
+  createAllocation,
   runAllocation,
   getAllocationStatus,
   getAllocationResults,

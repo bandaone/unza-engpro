@@ -10,6 +10,9 @@ router.use(protect, authorize('coordinator'));
 // GET /api/students
 router.get('/', studentController.getStudents);
 
+// POST /api/students - Create individual student
+router.post('/', studentController.createStudent);
+
 // POST /api/students/import-csv
 router.post('/import-csv', upload.single('file'), studentController.importStudentsFromCsv);
 

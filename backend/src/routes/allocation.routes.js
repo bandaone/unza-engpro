@@ -6,6 +6,12 @@ const { protect, authorize } = require('../middleware/auth.middleware');
 // All allocation routes require authentication
 router.use(protect);
 
+// GET /api/allocations - Accessible by coordinators
+router.get('/', authorize('coordinator'), allocationController.getAllocations);
+
+// POST /api/allocations - Only Coordinators can create allocations
+router.post('/', authorize('coordinator'), allocationController.createAllocation);
+
 // POST /api/allocations/run - Only Coordinators can run allocation algorithms
 router.post('/run', authorize('coordinator'), allocationController.runAllocation);
 

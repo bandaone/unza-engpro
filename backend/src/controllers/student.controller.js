@@ -9,6 +9,35 @@ const getStudents = async (req, res) => {
   }
 };
 
+const createStudent = async (req, res) => {
+  try {
+    const { full_name, email, registration_number, password } = req.body;
+
+    if (!full_name || !email || !registration_number || !password) {
+      return res.status(400).json({ 
+        message: 'Missing required fields',
+        required: ['full_name', 'email', 'registration_number', 'password']
+      });
+    }
+
+    const student = await studentService.createStudent({
+      full_name,
+      email,
+      registration_number,
+      password,
+    });
+
+    res.status(201).json({ message: 'Student created successfully', student });
+  } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ 
+        message: 'Student with this email or registration number already exists'
+      });
+    }
+    res.status(500).json({ message: 'Error creating student', error: error.message });
+  }
+};
+
 const getStudentById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -67,6 +96,7 @@ const importStudentsFromCsv = async (req, res) => {
 
 module.exports = {
   getStudents,
+  createStudent,
   getStudentById,
   updateStudent,
   importStudentsFromCsv,

@@ -3,6 +3,59 @@ const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
+const createStudent = async (data) => {
+  const { full_name, email, registration_number, password } = data;
+
+  // Check if student already exists
+  const existingUser = await prisma.user.findUnique({
+    where: { email }
+  });
+  if (existingUser) {
+    throw new Error('Email already exists');
+  }
+
+  const existingStudent = await prisma.student.findUnique({
+    where: { registration_number }
+  });
+  if (existingStudent) {
+    throw new Error('Registration number already exists');
+  }
+
+  // Hash password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // Create user and student in transaction
+  const student = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        full_name,
+        email,
+        password: hashedPassword,
+        role: 'student',
+        is_active: true,
+      },
+    });
+
+    return await tx.student.create({
+      data: {
+        user_id: user.id,
+        registration_number,
+      },
+      include: {
+        user: {
+          select: {
+            full_name: true,
+            email: true,
+            is_active: true,
+          },
+        },
+      },
+    });
+  });
+
+  return student;
+};
+
 const getStudents = async () => {
   const students = await prisma.student.findMany({
     include: {
@@ -108,6 +161,7 @@ const importStudentsFromCsv = async (fileBuffer) => {
 };
 
 module.exports = {
+  createStudent,
   getStudents,
   getStudentById,
   updateStudent,
