@@ -94,10 +94,24 @@ const importStudentsFromCsv = async (req, res) => {
   }
 };
 
+const deleteStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedStudent = await studentService.deleteStudent(id);
+    res.status(200).json({ message: 'Student deleted successfully', student: deletedStudent });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    res.status(500).json({ message: 'Error deleting student', error: error.message });
+  }
+};
+
 module.exports = {
   getStudents,
   createStudent,
   getStudentById,
   updateStudent,
   importStudentsFromCsv,
+  deleteStudent,
 };

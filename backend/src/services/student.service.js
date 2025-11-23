@@ -160,10 +160,36 @@ const importStudentsFromCsv = async (fileBuffer) => {
   return results;
 };
 
+const deleteStudent = async (id) => {
+  return await prisma.$transaction(async (tx) => {
+    // Get the student first to find the user_id
+    const student = await tx.student.findUnique({
+      where: { id }
+    });
+
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    // Delete the student record
+    await tx.student.delete({
+      where: { id }
+    });
+
+    // Delete the associated user record
+    await tx.user.delete({
+      where: { id: student.user_id }
+    });
+
+    return { message: 'Student deleted successfully' };
+  });
+};
+
 module.exports = {
   createStudent,
   getStudents,
   getStudentById,
   updateStudent,
   importStudentsFromCsv,
+  deleteStudent,
 };

@@ -22,4 +22,7 @@ router.get('/:id', studentController.getStudentById);
 // PUT /api/students/:id
 router.put('/:id', studentController.updateStudent);
 
+// DELETE /api/students/:id
+router.delete('/:id', studentController.deleteStudent);
+
 module.exports = router;
