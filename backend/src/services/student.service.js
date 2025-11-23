@@ -30,7 +30,7 @@ const createStudent = async (data) => {
       data: {
         full_name,
         email,
-        password: hashedPassword,
+        password_hash: hashedPassword,
         role: 'student',
         is_active: true,
       },
@@ -38,8 +38,10 @@ const createStudent = async (data) => {
 
     return await tx.student.create({
       data: {
-        user_id: user.id,
+        id: user.id,
         registration_number,
+        department: '',
+        academic_status: 'active',
       },
       include: {
         user: {
